@@ -24,11 +24,14 @@ import { SupplierOrderPanel } from '../ui/SupplierOrderPanel';
 import { DayManager } from '../day/DayManager';
 import { DaySummaryPanel } from '../ui/DaySummaryPanel';
 import { StoreDoor } from '../entities/StoreDoor';
+import WebGL from 'three/addons/capabilities/WebGL.js';
+import { ShopThreeView } from '../presentation/three/ShopThreeView';
 
 export class ShopScene extends Phaser.Scene {
   players: Player[] = [];
   private interactions!: InteractionSystem;
-  private shopCamera!: ShopCamera;
+  private shopCamera?: ShopCamera;
+  private threeView?: ShopThreeView;
   private inventory!: InventorySystem;
   private hud!: ShopHud;
   private customers!: CustomerManager;
@@ -42,6 +45,9 @@ export class ShopScene extends Phaser.Scene {
 
   create(data: ShopSceneData): void {
     this.players = [];
+    this.shopCamera = undefined; this.threeView = undefined;
+    this.cameras.main.stopFollow().setZoom(1).setScroll(0, 0).removeBounds();
+    this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
     this.physics.world.setBounds(WORLD.wall, WORLD.wall, WORLD.width - WORLD.wall * 2, WORLD.height - WORLD.wall * 2);
     const audio = createSceneAudio(this);
     const effects = new FeedbackEffects(this);
@@ -70,13 +76,23 @@ export class ShopScene extends Phaser.Scene {
       this.players.push(player);
       this.physics.add.collider(player, obstacles);
     }
-    this.shopCamera = new ShopCamera(this.cameras.main, this.players);
+    const worldObjects = [...this.children.list].filter(object => object !== effects.layer);
     this.interactions = new InteractionSystem(this, this.players, [...fixtures.crates, ...fixtures.shelves, ...this.cashiers, terminal, door], obstacles);
     this.hud = new ShopHud(this, this.players, economy, this.supplier, this.day, () => this.customers?.activeCustomerCount ?? 0, () => this.returnToMenu());
     this.orderPanel = new SupplierOrderPanel(this, this.supplier, open => this.setGameplayPaused(open), () => this.day.gameTimeMs, audio);
     this.summaryPanel = new DaySummaryPanel(this, day => this.startNextDay(day), audio);
     const unsubscribeSupplier = this.supplier.onChange(order => this.hud.notify(order.status === 'DELIVERED' ? 'Đã giao hàng!' : 'Đơn hàng đang được giao...'));
-    this.customers = new CustomerManager(this, createShopNavigation(obstacles), fixtures.shelves, this.checkout, effects, customer => { this.hud.excludeWorldObject(customer); audio.play('CUSTOMER_ENTER'); }, id => { this.day.recordOutOfStock(id); });
+    this.customers = new CustomerManager(this, createShopNavigation(obstacles), fixtures.shelves, this.checkout, effects, customer => { this.hud.excludeWorldObject(customer); if (this.threeView) customer.setVisible(false); audio.play('CUSTOMER_ENTER'); }, id => { this.day.recordOutOfStock(id); });
+    if (WebGL.isWebGL2Available()) {
+      this.threeView = new ShopThreeView(this, { players: this.players, shelves: fixtures.shelves, crates: fixtures.crates, inventory: this.inventory, customers: this.customers, checkout: this.checkout, day: this.day });
+      this.cameras.main.ignore(worldObjects);
+      for (const object of worldObjects) if ('setVisible' in object && typeof object.setVisible === 'function') object.setVisible(false);
+      effects.setProjector(this.threeView.project);
+      this.interactions.setPresentation(this.threeView.promptProject, (id, target) => this.threeView?.select(id, target));
+    } else {
+      this.shopCamera = new ShopCamera(this.cameras.main, this.players);
+      this.hud.notify('Trình duyệt chưa hỗ trợ WebGL 2. Đang dùng hình ảnh 2D.');
+    }
     const unsubscribeDay = this.day.onStateChange(state => {
       if (state === 'OPEN') this.customers.startSpawning(); else this.customers.stopSpawning();
       if (state === 'CLOSING') this.hud.notify('Cửa hàng đã đóng cửa. Phục vụ nốt khách nhé!');
@@ -109,6 +125,7 @@ export class ShopScene extends Phaser.Scene {
   }
   update(_time: number, delta: number): void {
     if (this.orderPanel.isOpen || this.day.state === 'SUMMARY') return;
+    this.threeView?.prepareMovement();
     for (const player of this.players) player.updateMovement(delta);
     this.interactions.update(this.players);
     if (this.orderPanel.isOpen) { this.interactions.hide(); return; }
@@ -121,6 +138,6 @@ export class ShopScene extends Phaser.Scene {
     for (const cashier of this.cashiers) cashier.updateCashier(delta);
     this.day.finishClosing({ activeCustomers: this.customers.activeCustomerCount, checkoutProcessing: this.checkout.hasActiveProcessing(), activeDelivery: this.supplier.activeOrder !== null });
     this.hud.update();
-    this.shopCamera.update(delta);
+    this.shopCamera?.update(delta);
   }
 }

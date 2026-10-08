@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import type { Controls } from '../types/game';
+import { cameraRelativeMovement } from '../presentation/three/ThreeRules';
 
 export class PlayerController {
   private readonly held = new Set<string>();
   private readonly pressed = new Set<string>();
   private readonly codes: Set<string>;
   private enabled = true;
+  movementYaw: number | null = null;
 
   constructor(scene: Phaser.Scene, readonly controls: Controls) {
     this.codes = new Set([controls.up, controls.down, controls.left, controls.right, controls.interact, controls.pickup, controls.sprint]);
@@ -38,10 +40,13 @@ export class PlayerController {
   };
   private readonly reset = (): void => { this.held.clear(); this.pressed.clear(); };
   setEnabled(enabled: boolean): void { this.enabled = enabled; this.reset(); }
+  get hasMovementInput(): boolean { const c = this.controls; return [c.up, c.down, c.left, c.right].some(code => this.held.has(code)); }
 
   direction(): Phaser.Math.Vector2 {
     const c = this.controls;
-    return new Phaser.Math.Vector2(Number(this.held.has(c.right)) - Number(this.held.has(c.left)), Number(this.held.has(c.down)) - Number(this.held.has(c.up))).normalize();
+    const direction = new Phaser.Math.Vector2(Number(this.held.has(c.right)) - Number(this.held.has(c.left)), Number(this.held.has(c.down)) - Number(this.held.has(c.up))).normalize();
+    if (this.movementYaw !== null) { const relative = cameraRelativeMovement(direction.x, direction.y, this.movementYaw); direction.set(relative.x, relative.y); }
+    return direction;
   }
   get sprinting(): boolean { return this.held.has(this.controls.sprint); }
   consume(action: 'interact' | 'pickup'): boolean {

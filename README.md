@@ -2,12 +2,13 @@
 
 A cozy Vietnamese neighborhood grocery game prototype. Buy inventory, carry goods from the kho, stock shelves, and serve customers at the cashier to earn store money. Play alone or share stocking and checkout duties with a friend on the same keyboard.
 
-Phase 7.5 replaces the technical prototype artwork with an original illustrated Vietnamese grocery shop: semi-chibi male/female shopkeepers, natural customer variants, recognizable fictional packaging, dimensional shelves and refrigerators, wood checkout counters, an ordering desk, ceramic tiles, and local decorative details. Gameplay, quantities, prices, navigation, controls, camera behavior, and the multi-day loop remain unchanged. All artwork is generated with Phaser Graphics and cached textures; no artwork, fonts, or sound assets are downloaded.
+The playable shop now uses real Three.js 3D models with a low oblique three-quarter camera, a brighter cream/mint/teal/coral palette, soft shadows, and warm lighting. Male/female shopkeepers, five customer variants, fictional grocery packages, shelves, refrigerators, counters, storage cartons, and the supplier desk share this visual style. Phaser continues to run input, ground-plane physics and UI; all Phase 1-6 inventory, customer, checkout, supplier and day rules are preserved. Models are generated locally without downloaded artwork or audio assets.
 
 ## Technology
 
 - TypeScript with strict checks
 - Phaser 3, Arcade Physics, and Phaser canvas UI
+- Three.js with WebGL 2 for the 3D world and generated UI portraits/icons
 - Vite and npm
 - Plain HTML/CSS for the game host; no React or backend
 
@@ -20,7 +21,7 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite, normally http://localhost:5173. Choose **Chơi 1 người** or **Chơi 2 người**. The menu also accepts **1** and **2**. Day 1 starts in preparation: stock shelves, then approach the entrance and press E (P1) or Enter (P2) to open. This prototype needs a physical keyboard; touch controls are not implemented.
+Open the local URL printed by Vite, normally http://localhost:5173. Choose **Chơi 1 người** or **Chơi 2 người**. The menu also accepts **1** and **2**. Day 1 starts in preparation: stock shelves, then approach the entrance and press E (P1) or Enter (P2) to open. This prototype needs a physical keyboard; touch controls are not implemented. Use a browser with WebGL 2 and hardware acceleration for 3D. If WebGL 2 is unavailable, the game keeps its previous 2D presentation and shows a notice.
 
 ```sh
 npm run typecheck
@@ -39,6 +40,8 @@ npm run preview
 | Take stock / stock shelf / checkout / supplier / open store | E | Enter |
 | Pick up nearby dropped stack / drop held stack | F | / |
 | Sprint (hold) | Left Shift | Right Shift |
+| Cycle camera mode (solo, WebGL 2) | C | Shared camera in co-op |
+| Look around in first/third person | Hold right mouse button and drag | Shared camera in co-op |
 | Close supplier modal / otherwise return to menu | Esc | Esc |
 | Adjust order / confirm / close supplier / next day | Mouse | Mouse |
 
@@ -54,7 +57,7 @@ Bindings use physical keyboard codes in `src/game/config/settings.ts`, so each p
 - Reusable `Player[]` architecture, normalized movement, and sprinting.
 - Solid walls, five shelves, two functional checkout counters, and five storage crates.
 - Players pass through each other.
-- A follow camera for solo play and one adaptive shared camera for co-op.
+- A smooth tilted 3D follow camera for solo play and one adaptive shared camera for co-op.
 - Data-driven product catalog with Mì gói, Nước ngọt, Sữa, Bánh quy, and Nước mắm, each with a distinct generated shape and color.
 - Storage starts with ten units per product and supplies at most five per pickup; partially depleted crates give their remaining units.
 - A supplier desk opens mouse-operated ordering with five-unit increments and a 50-unit limit per product.
@@ -64,13 +67,25 @@ Bindings use physical keyboard codes in `src/game/config/settings.ts`, so each p
 - Dropped stacks show their product and quantity on the floor. Either player can pick them up with their own pickup key.
 - Nearest reachable interactable targeting, with stable ties, obstacle checks, and one interaction per key press.
 - Keyboard state resets when focus is lost, avoiding stuck movement.
-- Procedural blue and orange chibi textures, colorful products, and Vietnamese signs.
-- Four customer shirt-color variations, product request bubbles, and optional state labels.
+- Procedural blue-shirt male and coral-shirt female 3D shopkeepers, colorful packages, and Vietnamese signs.
+- Five customer visual archetypes, readable projected product request bubbles, and success/failure expressions.
 - Automatic customer arrivals, obstacle-aware A* navigation, browsing, real stock consumption, checkout queues, and clean departures.
 - Independent player-operated cashiers with processing feedback, payment popups, and customer thanks.
 - FIFO queue advancement, capacity limits, and separate overflow waiting positions.
 - Integer-VND session money, immutable sale/order records, a SALE/SUPPLIER_PURCHASE money ledger, and revenue/expense/profit/customer/item statistics.
 - Immediate shelf labels and product-icon updates driven by stock-change notifications.
+
+## Camera modes
+
+Solo play offers **Góc xiên**, **Thứ nhất** and **Thứ ba**. Click the camera buttons beneath the HUD or press **C** to cycle. Co-op retains the shared oblique camera so both players remain visible. Browsers using the 2D fallback retain the original camera.
+
+- **Góc xiên:** the existing low three-quarter view and world-aligned movement.
+- **Thứ nhất:** a perspective camera at the shopkeeper's eye height. The own character is hidden; carried packaging is visible at the lower right. WASD moves relative to the mouse viewing direction.
+- **Thứ ba:** a perspective camera behind the shopkeeper. It follows position and automatically swings behind movement, including left/right movement. A held movement direction keeps its original input basis until release, preventing an automatic camera turn from making the character run in circles. Right-mouse dragging temporarily overrides automatic rotation for 750 ms. The camera retracts at furniture/walls; in very tight spaces it moves above the player, keeping the avatar visible.
+
+Hold the **right mouse button and drag** to look horizontally/vertically in either perspective mode. Vertical look is clamped. Perspective interaction prompts are anchored above the footer; offscreen/behind-camera world labels are hidden. Target selection and E/F actions use the original nearest-reachable rules, not a new aiming or shooting system. Supplier modals, SUMMARY and focus loss preserve gameplay pause/input reset behavior; camera-mode/look inputs are blocked while simulation is paused.
+
+Manual camera checks: cycle all three modes while idle/moving/carrying; walk forward/back/left/right and diagonally; in third person hold A or D and confirm camera rotation without circular movement; release and try another direction; drag the mouse and inspect shelves; approach walls/counters and confirm the character remains visible; test E/F, supplier modal, checkout and Next Day in each mode; return to menu/restart; confirm co-op remains on the shared camera. Browser verification remains required.
 
 ## Days and progression
 
@@ -245,7 +260,8 @@ src/
     config/        # Game configuration, controls, tuning values
     scenes/        # BootScene, MenuScene, ShopScene
     entities/      # Player, Shelf, StorageCrate, WorldItem, Customer, Cashier, SupplierTerminal, StoreDoor
-    presentation/  # Theme, semi-chibi views, packaging/furniture textures, shadows, density/depth, effects
+    presentation/  # Theme, feedback, generated 2D fallback textures
+      three/       # 3D models, camera, labels, environment, shared model resources, UI art
     audio/         # Safe named audio events, settings, Phaser adapter without required assets
     day/           # Day config, state/clock manager, daily snapshot deltas, pure goal/time rules
     customers/     # Config, state machine, shopping requests, manager, spawner
@@ -262,6 +278,7 @@ src/
     ui/            # InteractionPrompt, HeldItemView, ShopHud, SupplierOrderPanel, DaySummaryPanel
     types/         # Shared player, control, and scene types
 tests/
+  three-presentation.test.mjs # 3D coordinates, camera, projection, geometry, density and motion
   visual-redesign.test.mjs # Packaging/display mapping, identity, direction, scale, depth, invariant configs
   presentation.test.mjs # Facing, archetypes, ratios, real checkout progress, goal latch, motion/audio
   day.test.mjs        # Day lifecycle, clock, goals, daily accounting, closing, continuity
@@ -379,43 +396,27 @@ Use a short configured open duration for faster closing tests, then restore 300 
 30. Exit to the menu during OPEN, CLOSING, and SUMMARY in separate runs. Restart and confirm clean Day 1 preparation, default inventory/money, and no leftover timer, customer, delivery, or overlay.
 31. Check HUD/summary Vietnamese text, mouse targets, day/time/goal readability, and both camera modes at the existing game resolution and after resizing.
 
-## Phase 7.5 visual direction and architecture
+## 3D visual direction and architecture
 
-The shop uses a warm illustrated **top-down 3/4 view**. Cream ceramic tiles and off-white walls frame muted green painted metal, warm wood, dusty blue, and terracotta. Lighter top surfaces, shaded sides, small material seams, and layered contact shadows give furniture height without changing the ground-plane geometry. A subtle warm tint is static illustration, not dynamic lighting.
+The store is a bright, cozy **real 3D** Vietnamese grocery shop, viewed through an orthographic camera about 28 degrees above the floor and 27 degrees diagonally to the shelf fronts. This reveals character faces, shelf front/side faces and the packages on all three levels. Products sit near the shelf lip so the frame does not hide their front labels. Cream tiles, mint-painted shelves, warm wood, teal and coral shopkeeper clothes, and colorful fictional packaging replace the previous muted presentation. A hemisphere light, one warm directional light and a bounded soft shadow map ground furniture and characters. Cutaway walls reveal the interior. Calendar, fan, clock, red stools, plants, broom, cartons and entrance shutters remain non-colliding decoration.
 
-P1 is a young male shopkeeper with short dark hair, a muted teal shirt, beige pocket apron, dark trousers, and comfortable shoes. P2 is a young female shopkeeper with tied-back dark hair, a small cream headband, terracotta top, cream apron, dark trousers, and shoes. Their silhouettes, hair, clothing, and colors differ. Both use a 72-pixel visual height and approximately 29% head proportion, with sloped shoulders, arms, waist, legs, and simple eyes/brows/nose/mouth. Faces support friendly neutral, focused work, happy, and disappointed expressions.
+P1 remains a young male shopkeeper with short dark hair, teal shirt and apron. P2 remains a young female shopkeeper with a ponytail, coral shirt and apron. Five customer archetypes share their semi-chibi model language. Heads, hair, faces, clothes, limbs and carried products are actual geometry. Facing rotates the model to show real side/back views; walking animates limbs and visual bob only. Emotion and interaction animations read existing presentation state.
 
-Five customer styles share the same proportions and rendering language: a gray-haired neighbor with glasses, a student with a cap, an office worker with a tie, a young shopper with a bag and bob hairstyle, and a casual local shopper. Appearance never changes customer AI. Each direction has intentional head, torso, arm, leg, and detail textures: the back shows hair and apron straps, sides use profile faces and narrower silhouettes, and the front shows face and apron pocket. Walking alternates legs and arms with restrained bobbing; ponytail/apron details have subtle secondary motion. Reduced motion disables those animations and keeps directional readability.
+- `ShopThreeView` observes players, customers, shelves, storage, dropped items, cashier progress and day state. It never transfers goods, charges money, chooses AI paths or advances gameplay timers.
+- `ThreeRules` maps existing Phaser X/Y coordinates to Three X/Z at 0.01 world units per gameplay pixel. Height belongs exclusively to presentation. Every original static collider, queue slot, interaction position and A* footprint is retained.
+- `ShopCamera3D` follows solo players smoothly and uses the shared center/distance in co-op. Its projection also anchors prompts, stock labels, held-item labels and customer bubbles in the Phaser overlay. Nearby customer bubbles are shifted upward when they overlap.
+- `ModelFactory` caches shared geometry/materials. `CharacterModel`, `ProductModel`, `FurnitureModels` and `ShopEnvironment` can later be replaced by authored models without modifying domain systems. Floor tiles use instancing; shelf goods are capped at fifteen decorative package models, never one physics item per inventory unit.
+- `ShelfModel` uses the existing stock-density rules and the real shelf quantity. Milk and soft drinks use glass-front refrigerator presentation on the same logical shelf. Empty crates visibly hide packages and show their authoritative warehouse quantity.
+- `MenuArt` generates cached menu portraits and Phaser product icons from the same 3D models used for carried goods, shelf stock, customer purchases and dropped items. Supplier rows and request bubbles therefore retain consistent packaging.
+- Phaser renders the warm cream HUD, ordering sheet and receipt-style day summary over a transparent canvas. Only the presentation world is replaced. The existing 2D scene is retained as a WebGL 2 fallback.
 
-`ProductTextures` draws one generic icon per existing product, shared by held stacks, floor items, shelves, customer bubbles, supplier rows, and storage cartons:
-
-| Product | Original fictional packaging |
-| --- | --- |
-| Mì gói | Terracotta noodle packet with sealed edges, a bowl, and noodle strokes |
-| Nước ngọt | Colored can with curved metallic ends, pull-tab marks, label ribbon, and highlight |
-| Sữa | Cream/blue carton with folded roof, side face, and generic label |
-| Bánh quy | Warm biscuit box with depth, cream label, and a cookie illustration |
-| Nước mắm | Amber sauce bottle with narrow neck, red cap, cream label, and glass highlight |
-
-No commercial names, trademarks, or copied game assets are used. Buy/sell prices and quantities are unchanged.
-
-`FurnitureTextures` caches the static shelf, refrigerator, carton, counter, and ordering-desk artwork once during BootScene. `ShelfView` owns bounded decorative package sprites and applies pure `stockDensity` calculations: zero stock looks empty; partial stock distributes packages across three rows; full stock populates fifteen visual slots. These slots represent density, not one physical object per inventory unit. Milk and soft drinks select refrigerator presentation through `shelfDisplayStyle`, while retaining the **same Shelf and ShelfInventory**. Refrigerators have a cool interior, glass frame/handle, reflection strokes, and a vented base. Dry-goods shelves use painted frames, side panels, shelf levels, wood bases, small price strips, and integrated quantity labels.
-
-Cashiers use wood surfaces/front panels, a scanner area, a bag, and a register with screen, keypad, and receipt slot. Subtle **Quầy 1 / Quầy 2** signs identify stations. Checkout progress still reads the actual station job; expression feedback never changes processing duration. The supplier terminal is a small wood desk with a laptop, notebook, and phone. Back-stock cartons show open tops, tape, package art, and readable authoritative warehouse quantities.
-
-The environment includes restrained ceramic grout/highlights, wall/baseboard depth, a cream enamel fan, analog decorative clock, tear-off calendar, red stool, broom, delivery carton, helmet, and potted plant. Folding shutters, a mat, and a small tiled threshold establish the entrance. The outside hint is decorative and does not extend the playable map. The hanging sign reads the existing day state: **CHƯA MỞ CỬA**, **MỞ CỬA**, or **ĐÃ ĐÓNG CỬA**. All decoration stays outside physics and navigation.
-
-`VisualTheme` centralizes material colors, text styles, outlines, shadows, corners, and motion. `VisualCatalog` contains product/display mappings, scale constants, directional texture keys, stock density, and `groundDepth`. Character views sort by feet y; furniture sorts by its footprint's lower edge, so characters above it draw behind and characters below it draw in front. Artwork rises above that fixed footprint. The player Arcade carrier remains 52x64 with the original 28x24 body and offset. No collider, interaction point, shelf placement, queue slot, or navigation footprint changed. `ContactShadow` draws cheap layered ovals, with character shadows outside bobbing children so they stay on the floor.
-
-Views consume texture keys and subscribed stock changes, not duplicate gameplay data. Future PNG/sprite-sheet assets can replace those cached textures or the presentation views without rewriting inventory, AI, checkout, or accounting. No new gameplay systems are added.
-
-The HUD uses floating cream panels, subtle borders, restrained dividers, dark text, and player-colored marks; information hierarchy is unchanged. Customer bubbles use soft-shadowed cream paper and product icons, with natural **Cảm ơn nhé!** and **Ôi, hết hàng rồi!** presentation copy. The supplier modal resembles an order sheet on a clipboard; the summary resembles a shop receipt/ledger. Existing input blocking, calculations, pause behavior, and cleanup remain intact.
+Supplier modals and SUMMARY pause both gameplay and 3D animation. Checkout bars read the real station progress, with no second timer. Existing committed-domain feedback produces projected floating text and model pops; presentation never changes inventory or accounting. GPU resources, shadow maps, UI labels, renderer/context listeners, resize listeners and the separate canvas are cleaned up when leaving ShopScene.
 
 ### Audio and reduced motion
 
 The existing AudioManager and all named sound events are preserved. No audio assets are added, so playback safely no-ops and the game remains silent. Master/music/SFX flags remain available without a settings screen. Set `VISUAL_SETTINGS.reducedMotion = true` in `VisualTheme.ts` to disable bobbing, limb/secondary animation, pops, shakes, and upward floating feedback. Facing, stock indicators, readable fades, and all game rules remain active. Supplier modals and SUMMARY retain the existing simulation/presentation pause semantics.
 
-## Phase 7.5 manual visual QA
+## Manual 3D visual QA
 
 These browser checks remain required. Use the existing 1100x800 resolution first, then inspect resized solo/co-op views:
 
@@ -452,45 +453,26 @@ These browser checks remain required. Use the existing 1100x800 resolution first
 
 Also repeat movement and feedback with reduced motion enabled, and exit/re-enter the scene during feedback or a modal to check cleanup. Restore the desired visual setting afterward. Generated shapes still need browser approval for small-scale readability, occlusion, and animation feel; pure tests cannot establish artistic quality.
 
-## Phase 7.5 file inventory
-
-Created:
-
-- `src/game/presentation/VisualCatalog.ts`: pure product/display mappings, scale, directional keys, density, and depth.
-- `src/game/presentation/ContactShadow.ts`: reusable layered grounding shadows.
-- `src/game/presentation/ProductTextures.ts`: shared fictional grocery packaging.
-- `src/game/presentation/FurnitureTextures.ts`: cached dimensional furniture artwork and texture origins.
-- `src/game/presentation/ShelfView.ts`: retail/fridge presentation and bounded stock density.
-- `tests/visual-redesign.test.mjs`: pure visual contracts and unchanged gameplay configuration checks.
-
-Modified (game paths are under `src/game/`):
-
-- `presentation/`: `VisualTheme.ts`, `CharacterStyles.ts`, `ChibiTextures.ts`, `CharacterView.ts`, `PresentationRules.ts`, `ShopFeedback.ts`.
-- `entities/`: `Player.ts`, `Customer.ts`, `Shelf.ts`, `StorageCrate.ts`, `Cashier.ts`, `WorldItem.ts`, `SupplierTerminal.ts`, `StoreDoor.ts`.
-- `ui/`: `HeldItemView.ts`, `SpeechBubble.ts`, `ShopHud.ts`, `SupplierOrderPanel.ts`, `DaySummaryPanel.ts`, `PanelPrimitives.ts`, `InteractionPrompt.ts`.
-- `world/`: `PlaceholderTextures.ts`, `ShopLayout.ts`, `ShopDecorations.ts`.
-- `scenes/ShopScene.ts`, `scenes/MenuScene.ts`, `README.md`, `AGENTS.md`.
-
-No dependencies, gameplay systems, or audio assets were added. Existing test files were preserved. Generated build output is produced by Vite, not manually edited.
-
 ## Next milestone
 
-Next work should first verify this redesign in-browser, then replace any remaining procedural art through the existing texture/view boundaries as needed. This task stops at visual redesign; upgrades and other new gameplay remain out of scope.
+Verify the 3D presentation in-browser before adding gameplay: test solo/co-op movement in all four directions, inspect character and furniture scale, walk behind/in front of shelves, carry/drop/handoff goods, restock empty shelves/crates, serve both cashiers simultaneously, open/close the supplier modal, and finish a day. Resize the window and return to the menu several times; confirm 3D canvas alignment, readable labels, stable camera framing, and no leftover canvases. Repeat with `VISUAL_SETTINGS.reducedMotion = true`. Check the WebGL 2 fallback separately if available.
+
+Art remains procedural low-poly 3D rather than final authored meshes, textures or character animation clips. The next visual improvement should follow browser feedback, through the existing model/view boundaries. No upgrades or additional gameplay systems are included in this conversion.
 
 ## Validation status
 
-Phase 7.5 uses installed dependencies without adding packages.
+Three.js and its TypeScript definitions were installed by the project owner. Existing generated lockfile changes are retained; the agent did not edit the lockfile manually.
 
 | Command | Actual result |
 | --- | --- |
 | `npm run typecheck` | PASS, exit 0 |
-| `npm test` | PASS, 187 tests, 0 failures, exit 0 |
-| `npm run build` | PASS, exit 0; nonblocking Vite warning about the Phaser bundle size |
+| `npm test` | PASS, 221 tests, 0 failures, exit 0 |
+| `npm run build` | PASS, exit 0; nonblocking Vite warning about the Phaser/Three bundle size |
 | `npm run dev` | Blocked: `listen EPERM` on `0.0.0.0:5173`, exit 1 |
 
-All 164 existing tests remain. The 23 new tests cover all five product mappings, retail/refrigerator mapping, male/female shopkeeper identities, customer proportions, four-direction asset keys, focused faces, semi-chibi scale, ground-depth ordering, stock-density clamps, entrance-state labels, material theme values, reduced motion, and unchanged layout/footprints/initial stock/prices. Existing pure gameplay integration tests still pass.
+All 187 existing tests remain. Seventeen 3D tests cover ground-plane mapping, all four 3D facing rotations, frame-rate-independent camera smoothing, projected label anchors, keyboard orientation, co-op viewport bounds, pause behavior, empty player lists, bounded stock density, scale configuration, finite product geometry, distinct male/female silhouettes, carried goods without ground movement, reduced-motion bobbing, low oblique camera angles, shelf-front sightlines across all five product types and three rows, and diagonal co-op corner framing. Another 17 camera-mode tests cover solo/co-op eligibility, mode idempotence, eye anchors, third-person framing, camera obstacle retraction, look clamps, relative/normalized movement, projection clipping, paused camera position, sideways tracking, automatic rotation, stable held movement, manual override and tight-wall avatar visibility. Geometry tests execute without a WebGL renderer; they do not establish visual quality.
 
-TypeScript, tests, and the production build were executed. Rendering/layout and cleanup were inspected statically. Browser visuals, pixel-level composition, animation, and full co-op presentation remain unverified because this environment blocks the local Vite listening socket. No screenshot or browser verification is claimed. The artwork remains procedural illustration rather than finished hand-painted sprite sheets; the manual checklist above is required before accepting its visual quality.
+Browser rendering has **not** been verified: this environment blocks the local listening socket and has no connected browser. The manual visual and gameplay checklists remain required, particularly camera composition, overlay alignment, occlusion, shadow quality, animation feel, scene restarts and both modes.
 
 ## License
 

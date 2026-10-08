@@ -5,6 +5,8 @@
 - Support both solo and local co-op through player collections and configurable controls. Never hardcode gameplay around Player 1.
 - Keep interaction behavior outside scenes. Scenes assemble systems; entities and systems own their behavior.
 - Keep artwork replaceable through presentation views and cached texture keys. Share product icons across world/UI and centralize visual tokens/scales. Furniture artwork rises above unchanged footprints; sort by ground baselines, not artwork height. Visual bob/tweens transform visual children only, never physics or navigation coordinates.
+- Keep Three.js presentation read-only: map the Phaser X/Y ground plane to Three X/Z, preserve collision/navigation footprints, and project world labels through the shared 3D camera. Dispose GPU resources/listeners/canvases on scene shutdown. Generate UI product art from the same 3D models; retain the 2D fallback for browsers without WebGL 2.
+- Solo perspective cameras may rotate the input basis without changing movement speed or inventory rules. Third-person auto-follow must not feed rotating yaw back into a held movement input. Keep co-op on the shared camera; camera/look input must stop during modals and SUMMARY.
 - Keep tuning values centralized where appropriate. Avoid `any`, duplicated movement logic, and giant files.
 - Before bug fixes, reproduce the issue in the browser as an end user would. Inspect visuals and fix clear layout issues.
 - After meaningful changes, run `npm run typecheck` and `npm run build`, plus appropriate runtime checks. Resolve failures and flakiness; report environmental blockers honestly.

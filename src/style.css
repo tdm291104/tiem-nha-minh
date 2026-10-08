@@ -1,6 +1,7 @@
-:root { font-family: 'Trebuchet MS', Arial, sans-serif; color: #fff7df; background: #294b43; }
+:root { font-family: 'Trebuchet MS', Arial, sans-serif; color: #fff7df; background: #c8ece1; }
 * { box-sizing: border-box; }
 html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
 body { display: grid; place-items: center; }
 #game { width: 100%; height: 100%; }
-canvas { display: block; }
+#game > canvas { display: block; position: relative; z-index: 1; }
+#game > canvas.shop-three-canvas { position: fixed; z-index: 0; pointer-events: none; }

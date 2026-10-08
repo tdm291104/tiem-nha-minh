@@ -13,7 +13,7 @@ import { getProduct } from '../products/ProductCatalog';
 export class Customer extends Phaser.GameObjects.Container {
   readonly brain: CustomerBrain;
   private readonly requestBubble: SpeechBubble;
-  private readonly visual: CharacterView;
+  readonly visual: CharacterView;
   private readonly unsubscribeSale: () => void;
   private lastState = '';
   private readonly stateLabel: Phaser.GameObjects.Text;

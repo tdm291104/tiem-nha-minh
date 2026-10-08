@@ -3,6 +3,7 @@ import { THEME, THEME_TEXT, VISUAL_SETTINGS, cssColor } from './VisualTheme';
 import { motionPolicy } from './PresentationRules';
 import type { Position } from '../types/game';
 import { VIEW } from '../config/settings';
+import type { WorldProjector } from './three/WorldLabels';
 
 /** Presentation only: targets must be visual containers, never physics objects. */
 export class FeedbackEffects {
@@ -10,9 +11,12 @@ export class FeedbackEffects {
   private readonly active = new Map<Phaser.GameObjects.GameObject, Phaser.Tweens.Tween>();
   private bannerView?: Phaser.GameObjects.Container;
   private stopped = false;
+  private project?: WorldProjector;
   constructor(private readonly scene: Phaser.Scene) {
     this.world = scene.add.container(0, 0).setDepth(2100);
   }
+  get layer(): Phaser.GameObjects.Container { return this.world; }
+  setProjector(project: WorldProjector): void { this.project = project; }
   private animate(config: Phaser.Types.Tweens.TweenBuilderConfig): void {
     if (this.stopped) return;
     const target = config.targets;
@@ -29,12 +33,16 @@ export class FeedbackEffects {
 
   floatingText(position: Position, message: string, warning = false): void {
     if (this.stopped) return;
-    const text = this.scene.add.text(position.x, position.y - 30, message, {
+    const anchor = this.project ? this.project(position, 1.1) : { x: position.x, y: position.y - 30 };
+    const text = this.scene.add.text(anchor.x, anchor.y, message, {
       ...THEME_TEXT, fontSize: warning ? '14px' : '20px', fontStyle: 'bold', color: cssColor(warning ? THEME.colors.warning : THEME.colors.green),
       backgroundColor: cssColor(THEME.colors.paper), padding: { x: 8, y: 4 },
     }).setOrigin(0.5);
+    if ('visible' in anchor) text.setVisible(anchor.visible !== false);
     this.world.add(text);
-    this.animate({ targets: text, y: text.y - motionPolicy(VISUAL_SETTINGS.reducedMotion).floatDistance, alpha: 0,
+    const distance = motionPolicy(VISUAL_SETTINGS.reducedMotion).floatDistance;
+    this.animate({ targets: text, y: text.y - distance, alpha: 0,
+      onUpdate: (tween: Phaser.Tweens.Tween) => { if (this.project) { const current = this.project(position, 1.1); text.setPosition(current.x, current.y - distance * tween.progress).setVisible(current.visible !== false); } },
       duration: THEME.motion.effectMs, onComplete: () => text.destroy() });
   }
   pop(target: Phaser.GameObjects.Container): void {

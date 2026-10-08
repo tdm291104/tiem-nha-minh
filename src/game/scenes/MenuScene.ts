@@ -20,12 +20,15 @@ export class MenuScene extends Phaser.Scene {
     this.add.text(550, 175, 'CHUẨN BỊ MỞ TIỆM, GHÉ CHƠI NHA!', { ...TEXT_STYLE, fontSize: '15px', letterSpacing: 3 }).setOrigin(0.5);
     this.add.text(550, 250, 'TIỆM NHÀ MÌNH', { ...TEXT_STYLE, fontSize: '62px', fontStyle: 'bold' }).setOrigin(0.5);
     this.add.text(550, 315, 'Một tiệm nhỏ. Cả xóm thương.', { ...TEXT_STYLE, fontSize: '23px' }).setOrigin(0.5);
-    new CharacterView(this, PLAYER_STYLES[0]!).setPosition(485, 428).setScale(1.4);
-    new CharacterView(this, PLAYER_STYLES[1]!).setPosition(615, 428).setScale(1.4);
+    if (this.textures.exists('shopkeepers-3d')) this.add.image(550, 392, 'shopkeepers-3d').setDisplaySize(280, 154);
+    else {
+      new CharacterView(this, PLAYER_STYLES[0]!).setPosition(485, 428).setScale(1.4);
+      new CharacterView(this, PLAYER_STYLES[1]!).setPosition(615, 428).setScale(1.4);
+    }
     this.button(500, 'Chơi 1 người', 1);
     this.button(590, 'Chơi 2 người', 2);
     this.add.text(550, 685, 'WASD / Phím mũi tên · Cùng nhau trông tiệm', { ...TEXT_STYLE, fontSize: '17px' }).setOrigin(0.5);
-    this.add.text(550, 752, 'BẢN THỬ NGHIỆM 07.5  /  MỖI NGÀY MỘT TIỆM VUI', { ...TEXT_STYLE, fontSize: '12px', letterSpacing: 2 }).setOrigin(0.5).setAlpha(0.6);
+    this.add.text(550, 752, 'PHIÊN BẢN 3D  /  MỖI NGÀY MỘT TIỆM VUI', { ...TEXT_STYLE, fontSize: '12px', letterSpacing: 2 }).setOrigin(0.5).setAlpha(0.6);
     const keyboard = this.input.keyboard;
     keyboard?.once('keydown-ONE', () => this.scene.start('ShopScene', { playerCount: 1 }));
     keyboard?.once('keydown-TWO', () => this.scene.start('ShopScene', { playerCount: 2 }));

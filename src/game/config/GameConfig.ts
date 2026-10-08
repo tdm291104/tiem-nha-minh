@@ -9,7 +9,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   parent: 'game',
   width: VIEW.width,
   height: VIEW.height,
-  backgroundColor: '#294b43',
+  transparent: true,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   physics: { default: 'arcade', arcade: { debug: false } },
   scene: [BootScene, MenuScene, ShopScene],
