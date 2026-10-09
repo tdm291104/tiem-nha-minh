@@ -1,6 +1,5 @@
 import type { ProductId } from '../products/Product.ts';
-import type { Facing, Emotion } from './PresentationRules.ts';
-import { clampedRatio } from './PresentationRules.ts';
+import { type Facing, type Emotion, clampedRatio } from './PresentationRules.ts';
 
 export type ProductVisualType = 'noodle-packet' | 'drink-can' | 'milk-carton' | 'cookie-box' | 'sauce-bottle';
 export type ShelfDisplayStyle = 'retail' | 'refrigerated';

@@ -10,4 +10,4 @@ export interface Controls {
   sprint: string;
   interactLabel: string;
 }
-export interface ShopSceneData { playerCount: 1 | 2 }
+export interface ShopSceneData { playerCount: 1 | 2; continueSave?: boolean; resumeState?: import('../persistence/GameSave').GameSave }

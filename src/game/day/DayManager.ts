@@ -1,13 +1,15 @@
 import type { StoreEconomy } from '../economy/StoreEconomy.ts';
-import { DAY } from './DayConfig.ts';
-import type { DaySettings } from './DayConfig.ts';
+import { DAY, type DaySettings } from './DayConfig.ts';
 import { dailyGoal, evaluateGoal } from './DayRules.ts';
-import { captureAccounting, dailyStats } from './DailyStats.ts';
-import type { DayAccountingSnapshot, DailyStatsSnapshot } from './DailyStats.ts';
+import { captureAccounting, dailyStats, type DayAccountingSnapshot, type DailyStatsSnapshot } from './DailyStats.ts';
 
 export type DayState = 'PREPARATION' | 'OPEN' | 'CLOSING' | 'SUMMARY';
 export interface ClosingActivity { readonly activeCustomers: number; readonly checkoutProcessing: boolean; readonly activeDelivery: boolean }
 export interface DaySummary extends DailyStatsSnapshot { readonly day: number; readonly goal: number; readonly goalAchieved: boolean }
+export interface DayCheckpoint {
+  state: DayState; day: number; remainingMs: number; elapsedMs: number;
+  baseline: DayAccountingSnapshot; outOfStockIds: readonly number[];
+}
 
 export class DayManager {
   private currentState: DayState = 'PREPARATION';
@@ -40,6 +42,25 @@ export class DayManager {
   get summary(): DaySummary | null { return this.completedSummary; }
   get canOrder(): boolean { return !this.stopped && (this.state === 'PREPARATION' || this.state === 'OPEN'); }
   get canSpawnCustomers(): boolean { return !this.stopped && this.state === 'OPEN'; }
+  get checkpoint(): DayCheckpoint {
+    return { state: this.state, day: this.currentDay, remainingMs: this.remainingMs, elapsedMs: this.elapsedMs, baseline: this.baseline, outOfStockIds: [...this.outOfStockIds] };
+  }
+  restore(checkpoint: DayCheckpoint): void {
+    const { state, day, remainingMs, elapsedMs, baseline, outOfStockIds } = checkpoint;
+    if (!['PREPARATION', 'OPEN', 'CLOSING', 'SUMMARY'].includes(state) || !Number.isSafeInteger(day) || day < 1 || !Number.isFinite(remainingMs) || remainingMs < 0 || remainingMs > this.settings.openDurationMs || !Number.isFinite(elapsedMs) || elapsedMs < 0) throw new RangeError('Invalid saved day');
+    if ((state === 'CLOSING' || state === 'SUMMARY') && remainingMs !== 0) throw new RangeError('Closed day must have zero time');
+    if (state === 'PREPARATION' && remainingMs !== this.settings.openDurationMs || state === 'OPEN' && remainingMs === 0) throw new RangeError('Invalid saved opening clock');
+    for (const key of ['totalRevenue', 'totalExpenses', 'totalCustomersServed', 'totalItemsSold'] as const) {
+      if (!Number.isSafeInteger(baseline[key]) || baseline[key] < 0 || baseline[key] > this.economy.accounting[key]) throw new RangeError('Invalid daily baseline');
+    }
+    if (outOfStockIds.some(id => !Number.isSafeInteger(id) || id <= 0) || new Set(outOfStockIds).size !== outOfStockIds.length) throw new RangeError('Invalid departure IDs');
+    this.dayNumber = day; this.remainingMs = remainingMs; this.elapsedMs = elapsedMs;
+    this.goal = dailyGoal(day, this.settings); this.baseline = Object.freeze({ ...baseline });
+    this.outOfStockIds.clear(); for (const id of outOfStockIds) this.outOfStockIds.add(id);
+    this.currentState = state;
+    this.completedSummary = null;
+    this.completedSummary = state === 'SUMMARY' ? Object.freeze({ ...this.statistics, day, goal: this.goal, goalAchieved: this.goalAchieved }) : null;
+  }
   startDay(): boolean {
     if (this.stopped || this.state !== 'PREPARATION') return false;
     this.transition('OPEN'); return true;

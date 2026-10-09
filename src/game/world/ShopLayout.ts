@@ -1,21 +1,25 @@
 import Phaser from 'phaser';
 import { cssColor, THEME } from '../presentation/VisualTheme';
-import { TEXT_STYLE, WORLD } from '../config/settings';
+import { TEXT_STYLE, WORLD, INVENTORY } from '../config/settings';
 import { Shelf } from '../entities/Shelf';
 import { StorageCrate } from '../entities/StorageCrate';
 import type { InventorySystem } from '../systems/InventorySystem';
 import { SHOP } from './ShopDefinition';
+import { initialPlan, planShelves, type PlanCheckpoint } from '../operations/StorePlan';
+import type { StockBatch } from '../operations/StockBatches';
+import { OPERATIONS } from '../operations/OperationsConfig';
+import { operationalWalls } from './OperationalWalls';
 
 export { SHOP } from './ShopDefinition';
 
-export function createShopFixtures(scene: Phaser.Scene, obstacles: Phaser.Physics.Arcade.StaticGroup, inventory: InventorySystem): { shelves: Shelf[]; crates: StorageCrate[] } {
+export function createShopFixtures(scene: Phaser.Scene, obstacles: Phaser.Physics.Arcade.StaticGroup, inventory: InventorySystem, savedStock?: readonly { id: string; stock: number }[], capacity = INVENTORY.shelfCapacity, plan = initialPlan(), batches?: readonly { id: string; batches: readonly StockBatch[] }[], day?: number): { shelves: Shelf[]; crates: StorageCrate[] } {
   return {
-    shelves: SHOP.shelves.map(config => new Shelf(scene, config.id, config.productId, config, obstacles, inventory, config.initialStock)),
+    shelves: planShelves(plan).map(config => new Shelf(scene, config.id, config.productId, config, obstacles, inventory, savedStock?.find(saved => saved.id === config.id)?.stock ?? config.initialStock, capacity, batches?.find(saved => saved.id === config.id)?.batches, day)),
     crates: SHOP.crates.map(config => new StorageCrate(scene, config.id, config.productId, config, obstacles, inventory)),
   };
 }
 
-export function createShopLayout(scene: Phaser.Scene): Phaser.Physics.Arcade.StaticGroup {
+export function createShopLayout(scene: Phaser.Scene, plan?: PlanCheckpoint): Phaser.Physics.Arcade.StaticGroup {
   const obstacles = scene.physics.add.staticGroup();
   const g = scene.add.graphics().setDepth(-10);
   g.fillStyle(THEME.colors.floor).fillRoundedRect(0, 0, WORLD.width, WORLD.height, 18);
@@ -38,7 +42,13 @@ export function createShopLayout(scene: Phaser.Scene): Phaser.Physics.Arcade.Sta
     const collision = scene.add.rectangle(x, y, w, h).setVisible(false);
     obstacles.add(collision);
   };
-  for (const wall of SHOP.walls) block(wall.x, wall.y, wall.width, wall.height, wall.color);
+  for (const wall of plan ? operationalWalls(plan) : SHOP.walls) block(wall.x, wall.y, wall.width, wall.height, wall.color);
+  if (plan) {
+    const width = plan.expanded ? OPERATIONS.expandedWidth : WORLD.width;
+    g.fillStyle(THEME.colors.silver).fillRect(24, 940, width - 48, OPERATIONS.exteriorHeight - 940);
+    if (plan.expanded) g.fillStyle(THEME.colors.floor).fillRect(976, 24, width - 1000, 892);
+    obstacles.add(scene.add.rectangle(700, 1050, 190, 86).setVisible(false));
+  }
   label(500, 45, 'KHO HÀNG · TIỆM NHÀ MÌNH', 14);
   label(500, 575, 'Hàng ngon · Giá hiền', 17);
   label(500, 600, 'Một tiệm nhỏ, cả xóm thương', 12);

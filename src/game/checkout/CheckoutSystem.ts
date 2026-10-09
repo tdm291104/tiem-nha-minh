@@ -1,11 +1,9 @@
 import type { PlayerId, Position } from '../types/game.ts';
 import { StoreEconomy } from '../economy/StoreEconomy.ts';
 import { CHECKOUT } from './CheckoutConfig.ts';
-import { CashierStation } from './CashierStation.ts';
-import type { CashierDefinition } from './CashierStation.ts';
+import { CashierStation, type CashierDefinition } from './CashierStation.ts';
 import { orderedCashiers } from './QueueSelection.ts';
-import { createSale, freezePurchase } from './SaleTransaction.ts';
-import type { CustomerPurchase, SaleTransaction } from './SaleTransaction.ts';
+import { createSale, freezePurchase, type CustomerPurchase, type SaleTransaction } from './SaleTransaction.ts';
 
 export type PurchaseStatus = 'unassigned' | 'queued' | 'ready' | 'processing' | 'paid';
 interface PurchaseRecord { items: readonly CustomerPurchase[]; status: PurchaseStatus; cashierId: string | null }
@@ -17,9 +15,9 @@ export class CheckoutSystem {
   private readonly purchases = new Map<number, PurchaseRecord>();
   private readonly overflow = new Map<number, number>();
   private readonly waitingPositions: readonly Position[];
-  private readonly settings: Readonly<typeof CHECKOUT>;
   private readonly listeners = new Set<(sale: SaleTransaction) => void>();
   private nextSaleId = 1;
+  private processingMs: number;
   private stopped = false;
 
   constructor(definitions: readonly CashierDefinition[], waitingPositions: readonly Position[], economy = new StoreEconomy(), settings: Readonly<typeof CHECKOUT> = CHECKOUT) {
@@ -30,7 +28,8 @@ export class CheckoutSystem {
     this.stations = definitions.map(definition => new CashierStation(definition, settings.maxQueueLength));
     this.waitingPositions = waitingPositions.map(position => Object.freeze({ ...position }));
     this.economy = economy;
-    this.settings = settings;
+    this.processingMs = settings.processingMs;
+    this.nextSaleId = Math.max(0, ...economy.transactions.map(sale => Number(sale.id.replace('sale-', ''))).filter(Number.isSafeInteger)) + 1;
   }
   registerPurchase(customerId: number, items: readonly CustomerPurchase[]): boolean {
     if (this.stopped || this.purchases.has(customerId) || this.economy.hasServed(customerId) || items.length === 0) return false;
@@ -40,6 +39,10 @@ export class CheckoutSystem {
   }
   status(customerId: number): PurchaseStatus | null { return this.purchases.get(customerId)?.status ?? null; }
   hasActiveProcessing(): boolean { return this.stations.some(station => station.state === 'PROCESSING'); }
+  setProcessingDuration(durationMs: number): void {
+    if (!Number.isSafeInteger(durationMs) || durationMs <= 0) throw new RangeError('Invalid checkout duration');
+    this.processingMs = durationMs;
+  }
   prepareNextDay(): boolean {
     if (this.stopped || this.hasActiveProcessing()) return false;
     for (const station of this.stations) station.clear();
@@ -80,14 +83,21 @@ export class CheckoutSystem {
     return true;
   }
   start(cashierId: string, playerId: PlayerId, gameTimeMs: number): 'started' | 'busy' | 'not-ready' {
+    return this.claim(cashierId, playerId, gameTimeMs);
+  }
+  startByEmployee(cashierId: string, employeeId: number, gameTimeMs: number): 'started' | 'busy' | 'not-ready' {
+    if (!Number.isSafeInteger(employeeId) || employeeId < 1) throw new RangeError('Invalid checkout employee');
+    return this.claim(cashierId, null, gameTimeMs, employeeId);
+  }
+  private claim(cashierId: string, playerId: PlayerId | null, gameTimeMs: number, employeeId?: number): 'started' | 'busy' | 'not-ready' {
     if (this.stopped) return 'not-ready';
     const station = this.stations.find(candidate => candidate.id === cashierId);
     if (station?.state === 'PROCESSING') return 'busy';
     const customerId = station?.currentCustomerId;
     const record = customerId === null || customerId === undefined ? undefined : this.purchases.get(customerId);
     if (!station || !record || record.status !== 'ready' || customerId === null || customerId === undefined) return 'not-ready';
-    const sale = createSale({ id: `sale-${this.nextSaleId}`, customerId, cashierId, playerId, gameTimeMs }, record.items);
-    if (!station.start(sale, this.settings.processingMs)) return 'not-ready';
+    const sale = createSale({ id: `sale-${this.nextSaleId}`, customerId, cashierId, playerId, gameTimeMs, ...(employeeId !== undefined ? { employeeId } : {}) }, record.items);
+    if (!station.start(sale, this.processingMs * (employeeId !== undefined ? 1.5 : 1))) return 'not-ready';
     // Claim synchronously before the next player's interaction can run.
     record.status = 'processing';
     this.nextSaleId++;

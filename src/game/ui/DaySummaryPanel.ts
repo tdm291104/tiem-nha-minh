@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
-import { panelButton } from './PanelPrimitives';
-import { THEME, cssColor } from '../presentation/VisualTheme';
+import { panelButton, modalPaper } from './PanelPrimitives';
+import { cssColor } from '../presentation/VisualTheme';
 import type { AudioManager } from '../audio/AudioManager';
-import { TEXT_STYLE, VIEW } from '../config/settings';
+import { UI, UI_TEXT } from './UiTheme';
 import type { DaySummary } from '../day/DayManager';
 import { formatVnd, formatSignedVnd } from '../economy/Money';
 
@@ -15,36 +15,33 @@ export class DaySummaryPanel extends Phaser.GameObjects.Container {
     super(scene, 0, 0);
     scene.add.existing(this); this.setDepth(4100).setVisible(false);
     scene.cameras.main.ignore(this);
-    const mask = scene.add.rectangle(VIEW.width / 2, VIEW.height / 2, VIEW.width, VIEW.height, THEME.colors.ink, 0.9).setInteractive();
-    mask.on('pointerdown', (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => event.stopPropagation());
-    const paper = scene.add.graphics();
-    paper.fillStyle(THEME.colors.shadow, 0.15).fillRect(215, 95, 690, 630);
-    paper.fillStyle(THEME.colors.paper).fillRect(205, 85, 690, 630);
-    paper.lineStyle(1, THEME.colors.woodDark, 0.35);
-    for (let x = 240; x < 860; x += 12) paper.lineBetween(x, 204, x + 6, 204).lineBetween(x, 537, x + 6, 537);
-    for (let x = 205; x < 895; x += 18) paper.fillStyle(THEME.colors.woodLight, 0.25).fillTriangle(x, 714, x + 9, 704, x + 18, 714);
-    this.add([mask, paper]);
-    this.text(550, 109, 'TIỆM NHÀ MÌNH · SỔ BÁN HÀNG', 12).setOrigin(0.5);
-    this.heading = this.text(550, 143, '', 25).setOrigin(0.5);
-    this.result = this.text(550, 179, '', 22).setOrigin(0.5).setFontStyle('bold');
-    const labels = ['DOANH THU', 'CHI PHÍ', 'LỢI NHUẬN', 'KHÁCH ĐÃ PHỤC VỤ', 'SẢN PHẨM ĐÃ BÁN', 'KHÁCH BỎ ĐI VÌ HẾT HÀNG', 'MỤC TIÊU'];
+    const paper = modalPaper(scene, this, 260, 55, 580, 690);
+    paper.fillStyle(UI.colors.mint).fillRoundedRect(280, 75, 540, 136, 12);
+    paper.lineStyle(1, UI.colors.line);
+    for (let x = 295; x < 804; x += 14) paper.lineBetween(x, 236, x + 7, 236).lineBetween(x, 420, x + 7, 420).lineBetween(x, 582, x + 7, 582);
+    this.text(550, 95, 'TIỆM NHÀ MÌNH', 15).setOrigin(0.5).setFontStyle('bold');
+    this.heading = this.text(550, 133, '', 30).setOrigin(0.5).setFontStyle('bold');
+    this.result = this.text(550, 180, '', 17).setOrigin(0.5).setFontStyle('bold');
+    const labels = ['Doanh thu', 'Chi phí', 'Lợi nhuận', 'Khách đã phục vụ', 'Sản phẩm đã bán', 'Khách gặp hết hàng', 'Mục tiêu ngày'];
+    const positions = [259, 313, 367, 445, 482, 519, 556];
     labels.forEach((label, index) => {
-      const y = 241 + index * 44;
-      this.text(250, y, label, index < 3 ? 18 : 14);
-      this.values.push(this.text(850, y, '', index < 3 ? 24 : 18).setOrigin(1, 0));
+      const y = positions[index]!;
+      this.text(300, y, label, index < 3 ? 18 : 15).setColor(cssColor(UI.colors.muted));
+      this.values.push(this.text(800, y - 4, '', index < 3 ? 26 : 18).setOrigin(1, 0).setFontStyle(index < 3 ? 'bold' : 'normal'));
     });
-    this.text(550, 556, 'Hết một ngày trông tiệm. Mai mình lại mở!', 16).setOrigin(0.5);
-    this.text(550, 596, 'Giữ tiền và hàng tồn · Chuẩn bị cho ngày tiếp theo', 15).setOrigin(0.5);
-    panelButton(scene, this, 550, 658, 'NGÀY TIẾP THEO', () => { if (this.visible) nextDay(this.presentedDay); }, audio);
+    this.text(550, 609, 'Hết một ngày trông tiệm. Mai mình lại mở!', 15).setOrigin(0.5);
+    this.text(550, 636, 'Tiền và hàng tồn được giữ cho ngày tiếp theo.', 13).setOrigin(0.5).setColor(cssColor(UI.colors.muted));
+    panelButton(scene, this, 550, 695, 'Ngày tiếp theo', () => { if (this.visible) nextDay(this.presentedDay); }, audio, false, { width: 330, height: 48, fontSize: 18 });
   }
   showSummary(summary: DaySummary): void {
-    this.presentedDay = summary.day; this.heading.setText(`TỔNG KẾT NGÀY ${summary.day}`);
+    this.presentedDay = summary.day; this.heading.setText(`Tổng kết ngày ${summary.day}`);
     const values = [formatVnd(summary.dailyRevenue), formatVnd(summary.dailyExpenses), formatSignedVnd(summary.dailyProfit), String(summary.customersServed), String(summary.itemsSold), String(summary.outOfStockCustomers), formatVnd(summary.goal)];
     this.values.forEach((text, index) => text.setText(values[index] ?? ''));
-    this.result.setText(summary.goalAchieved ? '✓ HOÀN THÀNH MỤC TIÊU' : 'CHƯA ĐẠT MỤC TIÊU').setColor(summary.goalAchieved ? cssColor(THEME.colors.green) : cssColor(THEME.colors.warning));
+    this.result.setText(summary.goalAchieved ? 'Đã hoàn thành mục tiêu hôm nay!' : 'Chưa đạt mục tiêu. Mai mình thử lại nhé!').setColor(summary.goalAchieved ? cssColor(UI.colors.green) : cssColor(UI.colors.error));
+    this.values[2]?.setColor(cssColor(summary.dailyProfit >= 0 ? UI.colors.green : UI.colors.error));
     this.setVisible(true);
   }
   private text(x: number, y: number, value: string, size: number): Phaser.GameObjects.Text {
-    const text = this.scene.add.text(x, y, value, { ...TEXT_STYLE, fontSize: `${size}px` }); this.add(text); return text;
+    const text = this.scene.add.text(x, y, value, { ...UI_TEXT, fontSize: `${size}px` }); this.add(text); return text;
   }
 }

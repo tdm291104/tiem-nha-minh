@@ -1,7 +1,6 @@
 import type Phaser from 'phaser';
 import { THEME } from './VisualTheme';
-import { PLAYER_STYLES, CUSTOMER_ARCHETYPES } from './CharacterStyles';
-import type { CharacterStyle } from './CharacterStyles';
+import { PLAYER_STYLES, CUSTOMER_ARCHETYPES, type CharacterStyle } from './CharacterStyles';
 import type { Emotion, Facing } from './PresentationRules';
 import { directionalVisualKeys } from './VisualCatalog';
 
@@ -37,7 +36,6 @@ function drawHead(g: Graphics, style: CharacterStyle, facing: Facing, emotion: E
 function drawTorso(g: Graphics, style: CharacterStyle, facing: Facing): void {
   const c = THEME.colors, side = facing === 'LEFT' || facing === 'RIGHT';
   g.fillStyle(c.skinShade).fillRoundedRect(17, 1, 7, 7, 2);
-  // Sloped shoulders, waist taper, and asymmetric shading replace a rectangular body.
   g.fillStyle(style.shirt).fillPoints([{ x: side ? 13 : 7, y: 10 }, { x: 16, y: 5 }, { x: 24, y: 5 }, { x: side ? 28 : 34, y: 10 }, { x: side ? 27 : 31, y: 24 }, { x: 29, y: 36 }, { x: 12, y: 36 }, { x: side ? 12 : 9, y: 24 }], true);
   g.fillStyle(c.shadow, 0.12).fillTriangle(25, 8, 31, 12, 28, 35);
   g.lineStyle(1, c.paper, 0.2).lineBetween(13, 13, 14, 31);

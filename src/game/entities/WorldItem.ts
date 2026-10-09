@@ -10,7 +10,7 @@ export class WorldItem extends Phaser.GameObjects.Container {
   readonly stack: ProductStack;
   constructor(scene: Phaser.Scene, readonly itemId: number, stack: ProductStack, position: Position) {
     super(scene, position.x, position.y);
-    this.stack = createStack(stack.productId, stack.quantity);
+    this.stack = createStack(stack.productId, stack.quantity, stack);
     scene.add.existing(this);
     const shadow = scene.add.graphics(); drawContactShadow(shadow, 0, 7, 27, 9);
     const icon = scene.add.image(0, 0, `product-${stack.productId}`).setDisplaySize(VISUAL_SCALE.heldProduct, VISUAL_SCALE.heldProduct);

@@ -1,6 +1,5 @@
 import { assertVnd } from '../economy/Money.ts';
-import { DAY } from './DayConfig.ts';
-import type { DaySettings } from './DayConfig.ts';
+import { DAY, type DaySettings } from './DayConfig.ts';
 
 export function dailyGoal(day: number, settings: Readonly<DaySettings> = DAY): number {
   if (!Number.isSafeInteger(day) || day < 1) throw new RangeError('Day must be a positive safe integer');

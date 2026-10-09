@@ -1,12 +1,12 @@
 import Phaser from 'phaser';
+import { UI, UI_TEXT } from '../../ui/UiTheme';
 import type { Position } from '../../types/game';
-import { THEME, THEME_TEXT, cssColor } from '../VisualTheme';
+import { THEME, cssColor } from '../VisualTheme';
 import { SpeechBubble } from '../../ui/SpeechBubble';
 import type { ProductId } from '../../products/Product';
 
 export type WorldProjector = (position: Position, height?: number) => Position & { visible?: boolean };
 
-/** Screen-space text remains sharp while its anchor follows the 3D camera. */
 export class WorldLabels {
   readonly root: Phaser.GameObjects.Container;
   private readonly labels = new Map<string, Phaser.GameObjects.Text>();
@@ -21,11 +21,11 @@ export class WorldLabels {
     this.touched.add(id);
     let label = this.labels.get(id);
     if (!label) {
-      label = this.scene.add.text(0, 0, message, { ...THEME_TEXT, fontSize: '12px', fontStyle: 'bold', align: 'center', backgroundColor: cssColor(THEME.colors.paper), padding: { x: 6, y: 3 } }).setOrigin(0.5, 1);
+      label = this.scene.add.text(0, 0, message, { ...UI_TEXT, fontSize: '12px', fontStyle: 'normal', align: 'center', backgroundColor: cssColor(UI.colors.paper), padding: { x: 6, y: 3 } }).setOrigin(0.5, 1);
       this.labels.set(id, label); this.root.add(label);
     }
     if (label.text !== message) label.setText(message);
-    label.setColor(cssColor(color));
+    label.setColor(cssColor(color === THEME.colors.warning ? UI.colors.error : color === THEME.colors.blue ? UI.colors.blue : color === THEME.colors.orange ? UI.colors.orange : color === THEME.colors.green ? UI.colors.green : UI.colors.ink));
     const screen = this.project(position, height); label.setPosition(screen.x, screen.y).setVisible(screen.visible !== false);
   }
   bubble(id: string, position: Position, height: number, message: string, product: ProductId | null, warning: boolean): void {

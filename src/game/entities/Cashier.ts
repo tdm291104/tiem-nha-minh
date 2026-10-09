@@ -49,7 +49,7 @@ export class Cashier extends Phaser.GameObjects.Container implements Interactabl
   }
   updateCashier(_deltaMs: number): void {
     const state = this.station.state;
-    const text = state === 'PROCESSING' ? `P${this.station.operatingPlayerId} · Đang tính tiền...` : state === 'HAS_CUSTOMER' ? 'Khách đang chờ' : `Hàng chờ: ${this.station.queue.length}`;
+    const text = state === 'PROCESSING' ? `${this.station.operatingEmployeeId ? 'Nhân viên' : `P${this.station.operatingPlayerId}`} · Đang tính tiền...` : state === 'HAS_CUSTOMER' ? 'Khách đang chờ' : `Hàng chờ: ${this.station.queue.length}`;
     if (this.statusLabel.text !== text) this.statusLabel.setText(text);
     this.progress.setVisible(state === 'PROCESSING').setDisplaySize(72 * clampedRatio(this.station.progress, 1), 5);
     this.track.setVisible(state === 'PROCESSING');

@@ -22,6 +22,7 @@ export class InventorySystem {
     for (const listener of this.listeners) listener(event);
   }
   private nextItemId = 1;
+  canCarry: (playerId: PlayerId) => boolean = () => true;
 
   constructor(private readonly scene: Phaser.Scene, private readonly obstacles: Phaser.Physics.Arcade.StaticGroup, readonly storage: StoreStorage, private readonly notify: (message: string) => void) {
     // A persistent world layer keeps later drops out of the HUD camera too.
@@ -29,6 +30,15 @@ export class InventorySystem {
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { this.items.clear(); this.listeners.clear(); });
   }
   get worldItems(): readonly WorldItem[] { return [...this.items.values()]; }
+  restoreWorldItem(stack: WorldItem['stack'], position: Position): void {
+    const item = new WorldItem(this.scene, this.nextItemId++, stack, position);
+    this.itemLayer.add(item); this.items.set(item.itemId, item);
+  }
+  expireFloor(day: number): number {
+    let removed = 0;
+    for (const [id, item] of this.items) if (item.stack.expiresOnDay !== undefined && item.stack.expiresOnDay <= day + (item.productId === 'milk' ? 1 : 0)) { removed += item.quantity; this.items.delete(id); item.destroy(); }
+    return removed;
+  }
   update(players: Player[]): void {
     for (const player of players) {
       if (player.controller.consume('pickup')) this.pickupOrDrop(player);
@@ -36,6 +46,7 @@ export class InventorySystem {
   }
 
   retrieve(player: Player, productId: ProductId, targetId?: string): void {
+    if (!this.canCarry(player.id)) { this.notify('Cất dụng cụ dọn dẹp trước khi lấy hàng.'); return; }
     const result = retrieveStorageStack(this.storage, productId, player.currentHeldItem);
     if (result.status === 'holding') {
       this.emit(player, 'ERROR', 0, targetId, undefined, 'Bạn đang cầm hàng.');
@@ -55,7 +66,7 @@ export class InventorySystem {
       this.emit(player, 'STOCK_SHELF', result.transferred, undefined, shelf);
       this.notify(`P${player.id}: Đã xếp ${getProduct(shelf.acceptedProductId).name} x${result.transferred} lên kệ.`);
     } else {
-      const messages = { 'empty-handed': 'Bạn chưa cầm hàng. Lấy hàng ở kho nhé!', 'wrong-product': 'Kệ này không dành cho sản phẩm này.', full: 'Kệ đã đầy.' };
+      const messages = { 'empty-handed': 'Bạn chưa cầm hàng. Lấy hàng ở kho nhé!', 'wrong-product': 'Kệ này không dành cho sản phẩm này.', full: 'Kệ đã đầy.', packed: 'Mang thùng vào điểm nhận hàng để mở trước.' };
       this.emit(player, 'ERROR', 0, undefined, shelf, messages[result.status]);
       this.notify(`P${player.id}: ${messages[result.status]}`);
     }
@@ -72,6 +83,7 @@ export class InventorySystem {
       this.notify(`P${player.id}: Đã thả ${describeStack(stack)}.`);
       return;
     }
+    if (!this.canCarry(player.id)) { this.notify('Cất dụng cụ dọn dẹp trước khi nhặt hàng.'); return; }
     let nearest: WorldItem | undefined;
     let distance = INVENTORY.pickupRange;
     for (const item of this.items.values()) {

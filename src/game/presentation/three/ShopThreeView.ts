@@ -19,11 +19,14 @@ import { ModelFactory } from './ModelFactory';
 import { CharacterModel } from './CharacterModel';
 import { ShelfModel, createCounter, createCrate, createSupplierDesk } from './FurnitureModels';
 import { buildShopEnvironment } from './ShopEnvironment';
-import { createProductModel } from './ProductModel';
+import { createStackModel } from './ProductModel';
 import { THREE_VIEW, groundTo3D } from './ThreeRules';
 import { ShopCamera3D } from './ShopCamera3D';
 import { WorldLabels } from './WorldLabels';
 import { CameraModeControls } from './CameraModeControls';
+import { describePurchase } from '../../customers/ShoppingList';
+import type { ShopOperations } from '../../operations/ShopOperations';
+import { OperationsView } from './OperationsView';
 
 interface ShopViewSources {
   readonly players: readonly Player[];
@@ -33,6 +36,7 @@ interface ShopViewSources {
   readonly customers: CustomerManager;
   readonly checkout: CheckoutSystem;
   readonly day: DayManager;
+  readonly operations?: ShopOperations;
 }
 interface ActorRecord { model: CharacterModel; x: number; y: number }
 
@@ -54,6 +58,7 @@ export class ShopThreeView {
   private readonly selection = new Map<PlayerId, THREE.Mesh>();
   private stopped = false;
   private contextLost = false;
+  private readonly operationsView?: OperationsView;
 
   constructor(private readonly scene: Phaser.Scene, private readonly sources: ShopViewSources) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
@@ -70,7 +75,8 @@ export class ShopThreeView {
     sun.castShadow = true; sun.shadow.mapSize.set(THREE_VIEW.shadowMapSize, THREE_VIEW.shadowMapSize);
     sun.shadow.camera.left = -8; sun.shadow.camera.right = 8; sun.shadow.camera.top = 8; sun.shadow.camera.bottom = -8;
     sun.shadow.camera.near = 0.1; sun.shadow.camera.far = 24; sun.shadow.normalBias = 0.045; sun.shadow.bias = -0.0002;
-    this.world.add(sun, sun.target, buildShopEnvironment(this.factory));
+    this.world.add(sun, sun.target, buildShopEnvironment(this.factory, sources.operations?.context.plan.checkpoint));
+    if (sources.operations) this.operationsView = new OperationsView(this.factory, this.world, sources.operations);
     for (const shelf of sources.shelves) {
       const model = new ShelfModel(this.factory, shelf.acceptedProductId); this.place(model.root, shelf);
       this.shelfModels.set(shelf, model);
@@ -79,7 +85,7 @@ export class ShopThreeView {
     for (const definition of SHOP.counters) { const model = createCounter(this.factory, definition.number); this.place(model.root, definition); this.counterModels.set(definition.id, model); }
     this.place(createSupplierDesk(this.factory), SHOP.supplierTerminal);
     this.world.updateMatrixWorld(true);
-    this.cameraRig.setBlockers([...this.world.children].filter(object => object instanceof THREE.Group));
+    this.cameraRig.setBlockers([...this.world.children].filter(object => object instanceof THREE.Group && object.userData.cameraObstacle !== false));
     this.world.add(this.cameraRig.perspective);
     for (const player of sources.players) {
       const marker = new THREE.Mesh(new THREE.RingGeometry(0.18, 0.23, 32), new THREE.MeshBasicMaterial({ color: player.id === 1 ? THEME.colors.blue : THEME.colors.orange, transparent: true, opacity: 0.65, depthWrite: false, side: THREE.DoubleSide }));
@@ -113,7 +119,7 @@ export class ShopThreeView {
     for (const player of this.sources.players) if (this.cameraRig.mode === 'THIRD_PERSON' && !player.controller.hasMovementInput) player.controller.movementYaw = this.cameraRig.yaw;
   }
   readonly promptProject = (position: Position, height = 0): Position & { visible: boolean } => this.cameraRig.mode === 'OBLIQUE'
-    ? this.project(position, height) : { x: VIEW.width / 2, y: VIEW.height - 162, visible: true };
+    ? this.project(position, height) : { x: VIEW.width / 2, y: VIEW.height - 227, visible: true };
   select(playerId: PlayerId, target?: Interactable): void {
     const marker = this.selection.get(playerId);
     if (!marker) return;
@@ -153,7 +159,7 @@ export class ShopThreeView {
       model.screen.material = this.factory.material(station.state === 'PROCESSING' ? THEME.colors.amber : THEME.colors.green);
       model.bar.visible = station.state === 'PROCESSING'; model.bar.scale.x = Math.max(0.001, station.progress);
       model.bar.position.x = -0.3 + 0.3 * station.progress;
-      if (station.state !== 'IDLE') this.labels.text(station.id, station.position, 1.2, station.state === 'PROCESSING' ? `P${station.operatingPlayerId} · Đang tính tiền` : 'Khách đang chờ', THEME.colors.green);
+      if (station.state !== 'IDLE') this.labels.text(station.id, station.position, 1.2, station.state === 'PROCESSING' ? `${station.operatingEmployeeId ? 'Nhân viên' : `P${station.operatingPlayerId}`} · Đang tính tiền` : 'Khách đang chờ', THEME.colors.green);
     }
     const activeActors = new Set<string>();
     for (const player of sources.players) {
@@ -167,10 +173,10 @@ export class ShopThreeView {
       if (this.cameraRig.mode === 'OBLIQUE') this.labels.text(key, p, 0.97, `P${player.id}${player.currentHeldItem ? ` · ${describeStack(player.currentHeldItem)}` : ''}`, player.id === 1 ? THEME.colors.blue : THEME.colors.orange);
       if (sources.players.length === 1) {
         const held = this.cameraRig.mode === 'FIRST_PERSON' ? player.currentHeldItem : null;
-        const id = held?.productId ?? '';
+        const id = held ? `${held.productId}:${Boolean(held.packed)}` : '';
         if (id !== this.firstPersonProduct) {
           if (this.firstPersonItem) this.cameraRig.perspective.remove(this.firstPersonItem);
-          this.firstPersonProduct = id; this.firstPersonItem = held ? createProductModel(this.factory, held.productId) : null;
+          this.firstPersonProduct = id; this.firstPersonItem = held ? createStackModel(this.factory, held) : null;
           if (this.firstPersonItem) { this.firstPersonItem.position.set(0.19, -0.18, -0.38); this.firstPersonItem.scale.setScalar(0.65); this.cameraRig.perspective.add(this.firstPersonItem); }
         }
       }
@@ -184,17 +190,19 @@ export class ShopThreeView {
       record.model.update(animationDelta, customer.visual.facing, moving, false, customer.visual.emotion);
       record.model.root.scale.setScalar(VISUAL_SETTINGS.reducedMotion ? 1 : customer.visual.figure.scaleX);
       const product = brain.targetProductId;
-      const message = brain.feedback === 'Hết hàng!' ? 'Ôi, hết hàng rồi!' : brain.feedback === 'Cảm ơn!' ? 'Cảm ơn nhé!' : brain.feedback || (product ? getProduct(product).name : 'Ghé tiệm nha!');
+      const shopping = ['CHOOSING_PRODUCT', 'MOVING_TO_SHELF', 'BROWSING', 'TAKING_PRODUCT'].includes(brain.state);
+      const message = brain.feedback === 'Hết hàng!' ? 'Ôi, hết hàng rồi!' : brain.feedback === 'Cảm ơn!' ? 'Cảm ơn nhé!' : brain.feedback || (shopping && product ? getProduct(product).name : brain.carriedQuantity > 0 ? describePurchase(brain.purchase) : 'Ghé tiệm nha!');
       this.labels.bubble(key, p, 1.08 + (customer.id % 2) * 0.14, message, brain.feedback ? null : product, brain.state === 'OUT_OF_STOCK');
     }
     for (const [key, record] of this.actors) if (!activeActors.has(key)) { this.world.remove(record.model.root); this.actors.delete(key); }
     const activeDrops = new Set<number>();
     for (const item of sources.inventory.worldItems) {
       activeDrops.add(item.itemId); let model = this.drops.get(item.itemId);
-      if (!model) { model = createProductModel(this.factory, item.productId); this.place(model, item.worldPosition); this.drops.set(item.itemId, model); }
+      if (!model) { model = createStackModel(this.factory, item.stack); this.place(model, item.worldPosition); this.drops.set(item.itemId, model); }
       this.labels.text(`drop-${item.itemId}`, item.worldPosition, 0.31, `${getProduct(item.productId).name} x${item.quantity}`);
     }
     for (const [id, model] of this.drops) if (!activeDrops.has(id)) { this.world.remove(model); this.drops.delete(id); }
+    this.operationsView?.update(animationDelta, this.labels);
     this.labels.endFrame(); this.renderer.render(this.world, this.cameraRig.camera);
   }
   private placeActor(record: ActorRecord, position: Position): void {

@@ -29,4 +29,5 @@ export const CUSTOMERS: Readonly<CustomerSettings> = {
   clearance: 16,
   debugStates: false,
 };
+export const MAX_CUSTOMER_PRODUCTS = 3;
 

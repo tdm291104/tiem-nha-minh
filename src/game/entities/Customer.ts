@@ -9,6 +9,7 @@ import { SpeechBubble } from '../ui/SpeechBubble';
 import type { CheckoutSystem } from '../checkout/CheckoutSystem';
 import type { FeedbackEffects } from '../presentation/FeedbackEffects';
 import { getProduct } from '../products/ProductCatalog';
+import { describePurchase } from '../customers/ShoppingList';
 
 export class Customer extends Phaser.GameObjects.Container {
   readonly brain: CustomerBrain;
@@ -44,12 +45,13 @@ export class Customer extends Phaser.GameObjects.Container {
     this.setPosition(brain.position.x, brain.position.y).setDepth(groundDepth(brain.position.y));
     const product = brain.targetProductId ? getProduct(brain.targetProductId) : null;
     const dialogue = brain.feedback === 'Cảm ơn!' ? 'Cảm ơn nhé!' : brain.feedback === 'Hết hàng!' ? 'Ôi, hết hàng rồi!' : brain.feedback;
-    const text = dialogue || (product ? brain.carriedQuantity > 0 ? `${product.name} x${brain.carriedQuantity}` : product.name : 'Ghé tiệm chút nha!');
+    const shopping = ['CHOOSING_PRODUCT', 'MOVING_TO_SHELF', 'BROWSING', 'TAKING_PRODUCT'].includes(brain.state);
+    const text = dialogue || (shopping && product ? product.name : brain.carriedQuantity > 0 ? describePurchase(brain.purchase) : 'Ghé tiệm chút nha!');
     this.requestBubble.showMessage(text, brain.feedback ? null : product?.id ?? null, brain.state === 'OUT_OF_STOCK');
     if (brain.state === 'OUT_OF_STOCK' && this.lastState !== brain.state) { this.visual.setEmotion('DISAPPOINTED'); this.effects.shake(this.visual.figure); }
     this.lastState = brain.state;
     if (this.stateLabel.text !== brain.state) this.stateLabel.setText(brain.state);
     this.carriedIcon.setVisible(brain.carriedQuantity > 0);
-    if (product && brain.carriedQuantity > 0) this.carriedIcon.setTexture(`product-${product.id}`);
+    if (brain.purchase[0]) this.carriedIcon.setTexture(`product-${brain.purchase[0].productId}`);
   }
 }

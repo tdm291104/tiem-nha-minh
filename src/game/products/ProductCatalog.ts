@@ -10,13 +10,14 @@ export const PRODUCTS: Readonly<Record<ProductId, Product>> = {
 
 export function getProduct(id: ProductId): Product { return PRODUCTS[id]; }
 
-export function createStack(productId: ProductId, quantity = getProduct(productId).maxStack): ProductStack {
+export function createStack(productId: ProductId, quantity = getProduct(productId).maxStack, metadata: Pick<ProductStack, 'packed' | 'expiresOnDay'> = {}): ProductStack {
   if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > getProduct(productId).maxStack) {
     throw new RangeError('Product stack quantity must be a positive integer within maxStack');
   }
-  return Object.freeze({ productId, quantity });
+  if (metadata.packed !== undefined && typeof metadata.packed !== 'boolean' || metadata.expiresOnDay !== undefined && (!Number.isSafeInteger(metadata.expiresOnDay) || metadata.expiresOnDay < 1)) throw new RangeError('Invalid stack metadata');
+  return Object.freeze({ productId, quantity, ...(metadata.packed !== undefined ? { packed: metadata.packed } : {}), ...(metadata.expiresOnDay !== undefined ? { expiresOnDay: metadata.expiresOnDay } : {}) });
 }
 
 export function describeStack(stack: ProductStack | null): string {
-  return stack ? `${getProduct(stack.productId).name} x${stack.quantity}` : 'Không';
+  return stack ? `${stack.packed ? 'Thùng ' : ''}${getProduct(stack.productId).name} x${stack.quantity}${stack.expiresOnDay ? ` · HSD ngày ${stack.expiresOnDay - 1}` : ''}` : 'Không';
 }

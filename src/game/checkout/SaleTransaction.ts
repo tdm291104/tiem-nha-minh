@@ -4,13 +4,14 @@ import { assertQuantity } from '../products/StockTransfer.ts';
 import { addVnd, assertVnd } from '../economy/Money.ts';
 import type { PlayerId } from '../types/game.ts';
 
-export interface CustomerPurchase { readonly productId: ProductId; readonly quantity: number }
+export interface CustomerPurchase { readonly productId: ProductId; readonly quantity: number; readonly expiresOnDay?: number }
 export interface SaleLine extends CustomerPurchase { readonly unitPrice: number; readonly lineTotal: number }
 export interface SaleTransaction {
   readonly id: string;
   readonly customerId: number;
   readonly cashierId: string;
-  readonly playerId: PlayerId;
+  readonly playerId: PlayerId | null;
+  readonly employeeId?: number;
   readonly items: readonly SaleLine[];
   readonly total: number;
   readonly gameTimeMs: number;
@@ -22,7 +23,8 @@ export function freezePurchase(items: readonly CustomerPurchase[]): readonly Cus
   return Object.freeze(items.map(item => {
     assertQuantity(item.quantity);
     if (item.quantity === 0 || !getProduct(item.productId)) throw new RangeError('Purchase lines require valid products and positive quantities');
-    return Object.freeze({ productId: item.productId, quantity: item.quantity });
+    if (item.expiresOnDay !== undefined && (!Number.isSafeInteger(item.expiresOnDay) || item.expiresOnDay < 1)) throw new RangeError('Invalid purchase expiry');
+    return Object.freeze({ productId: item.productId, quantity: item.quantity, ...(item.expiresOnDay !== undefined ? { expiresOnDay: item.expiresOnDay } : {}) });
   }));
 }
 
@@ -38,7 +40,8 @@ export function createSale(identity: SaleIdentity, purchase: readonly CustomerPu
 }
 
 export function freezeSale(sale: SaleTransaction): SaleTransaction {
-  if (!sale.id || !sale.cashierId || !Number.isSafeInteger(sale.customerId) || sale.customerId <= 0 || (sale.playerId !== 1 && sale.playerId !== 2) || !Number.isFinite(sale.gameTimeMs) || sale.gameTimeMs < 0) throw new RangeError('Invalid sale identity');
+  const validOperator = sale.employeeId === undefined ? sale.playerId === 1 || sale.playerId === 2 : sale.playerId === null && Number.isSafeInteger(sale.employeeId) && sale.employeeId > 0;
+  if (!sale.id || !sale.cashierId || !Number.isSafeInteger(sale.customerId) || sale.customerId <= 0 || !validOperator || !Number.isFinite(sale.gameTimeMs) || sale.gameTimeMs < 0) throw new RangeError('Invalid sale identity');
   freezePurchase(sale.items);
   const items = sale.items.map(item => {
     assertVnd(item.unitPrice); assertVnd(item.lineTotal);

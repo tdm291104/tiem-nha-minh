@@ -3,7 +3,6 @@ import { PRODUCTS } from '../products/ProductCatalog';
 import { THEME } from './VisualTheme';
 import { productVisualType, VISUAL_SCALE } from './VisualCatalog';
 
-/** One cached packaging illustration shared by every world and UI icon. No real brands. */
 export function createProductTextures(scene: Phaser.Scene): void {
   const c = THEME.colors;
   for (const product of Object.values(PRODUCTS)) {

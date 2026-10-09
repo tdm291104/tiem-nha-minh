@@ -30,6 +30,7 @@ export class CashierStation {
   get state(): CashierState { return this.job ? 'PROCESSING' : this.readyCustomerId !== null && this.readyCustomerId === this.queue.front ? 'HAS_CUSTOMER' : 'IDLE'; }
   get progress(): number { return this.job ? Math.min(1, this.job.elapsedMs / this.job.durationMs) : 0; }
   get operatingPlayerId(): PlayerId | null { return this.job?.sale.playerId ?? null; }
+  get operatingEmployeeId(): number | null { return this.job?.sale.employeeId ?? null; }
   markReady(customerId: number): boolean {
     if (this.job || this.queue.front !== customerId) return false;
     this.readyCustomerId = customerId;

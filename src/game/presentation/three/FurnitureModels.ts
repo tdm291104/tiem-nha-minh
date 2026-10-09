@@ -23,7 +23,6 @@ export class ShelfModel {
       f.box(this.root, 0, height, 0.579, 1.11, 0.07, 0.015, c.paper);
       for (let column = 0; column < 5; column++) {
         const packageModel = createProductModel(f, productId);
-        // Bring goods toward the shelf lip so the lower oblique camera sees each row.
         packageModel.position.set(-0.43 + column * 0.215, height + 0.026, 0.47);
         this.products.push(packageModel); this.root.add(packageModel);
       }

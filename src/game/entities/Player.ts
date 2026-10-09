@@ -37,7 +37,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   get feetPosition(): Position { return this.body ? { x: this.body.center.x, y: this.body.center.y } : this.position; }
   get currentHeldItem(): ProductStack | null { return this.heldItem; }
   setHeldItem(stack: ProductStack | null): void {
-    this.heldItem = stack ? createStack(stack.productId, stack.quantity) : null;
+    this.heldItem = stack ? createStack(stack.productId, stack.quantity, stack) : null;
     this.heldItemView.showStack(this.heldItem);
   }
   presentEmotion(emotion: Emotion, durationMs = 650): void { this.expressionRemainingMs = durationMs; this.visual.setEmotion(emotion); }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Position } from '../../types/game.ts';
-import { THREE_VIEW, cameraBlend, groundTo3D, followMovementYaw } from './ThreeRules.ts';
-import type { CameraMode } from './ThreeRules.ts';
+import { THREE_VIEW, cameraBlend, groundTo3D, followMovementYaw, type CameraMode } from './ThreeRules.ts';
+import { preferences } from '../../settings/Preferences.ts';
 
 export class ShopCamera3D {
   private readonly overhead = new THREE.OrthographicCamera();
@@ -40,9 +40,9 @@ export class ShopCamera3D {
   look(deltaX: number, deltaY: number): void {
     if (this.mode === 'OBLIQUE' || !Number.isFinite(deltaX + deltaY)) return;
     this.manualLookRemainingMs = THREE_VIEW.manualLookHoldMs;
-    this.yaw -= deltaX * THREE_VIEW.lookSensitivity;
+    this.yaw -= deltaX * THREE_VIEW.lookSensitivity * preferences.snapshot.lookSensitivity;
     this.yaw = Math.atan2(Math.sin(this.yaw), Math.cos(this.yaw));
-    this.pitch = Math.max(THREE_VIEW.minPitch, Math.min(THREE_VIEW.maxPitch, this.pitch + deltaY * THREE_VIEW.lookSensitivity));
+    this.pitch = Math.max(THREE_VIEW.minPitch, Math.min(THREE_VIEW.maxPitch, this.pitch + deltaY * THREE_VIEW.lookSensitivity * preferences.snapshot.lookSensitivity));
   }
   update(deltaMs: number, players: readonly Position[]): void {
     if (players.length === 0) return;
@@ -57,7 +57,6 @@ export class ShopCamera3D {
     const blend = cameraBlend(deltaMs);
     const centerX = players.reduce((sum, player) => sum + player.x, 0) / players.length;
     const centerZ = players.reduce((sum, player) => sum + player.y, 0) / players.length;
-    // Follow gently without letting the room or co-op players leave the frame.
     const follow = players.length === 1 ? 0.6 : 0.18;
     this.focus.x += ((5 + (centerX / 100 - 5) * follow) - this.focus.x) * blend;
     this.focus.z += ((4.7 + (centerZ / 100 - 4.7) * follow) - this.focus.z) * blend;

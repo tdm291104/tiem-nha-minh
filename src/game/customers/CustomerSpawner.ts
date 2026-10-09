@@ -1,5 +1,4 @@
-import { CUSTOMERS } from './CustomerConfig.ts';
-import type { CustomerSettings } from './CustomerConfig.ts';
+import { CUSTOMERS, type CustomerSettings } from './CustomerConfig.ts';
 
 export class CustomerSpawner {
   private remainingMs: number;

@@ -1,17 +1,26 @@
 import Phaser from 'phaser';
-import { THEME, cssColor } from '../presentation/VisualTheme';
-import { TEXT_STYLE, VIEW } from '../config/settings';
+import { cssColor } from '../presentation/VisualTheme';
+import { VIEW } from '../config/settings';
 import type { Player } from '../entities/Player';
 import { describeStack } from '../products/ProductCatalog';
+import { PLAYER_STYLES } from '../presentation/CharacterStyles';
 import type { StoreEconomy } from '../economy/StoreEconomy';
 import { formatVnd, formatSignedVnd } from '../economy/Money';
 import type { SupplierSystem } from '../supplier/SupplierSystem';
 import type { DayManager } from '../day/DayManager';
 import { formatCountdown } from '../day/DayRules';
+import { UI, UI_TEXT, HUD_LAYOUT, uiRatio } from './UiTheme';
+import { drawPaper, panelButton } from './PanelPrimitives';
+import type { AudioManager } from '../audio/AudioManager';
+
+const DAY_LABELS = { PREPARATION: 'Chuẩn bị mở cửa', OPEN: 'Đang bán hàng', CLOSING: 'Phục vụ nốt khách', SUMMARY: 'Đã đóng cửa' };
 
 export class ShopHud {
+  private readonly root: Phaser.GameObjects.Container;
+  private readonly toast: Phaser.GameObjects.Container;
   private readonly message: Phaser.GameObjects.Text;
-  private readonly statuses = new Map<Player, Phaser.GameObjects.Text>();
+  private readonly toastPaper: Phaser.GameObjects.Graphics;
+  private readonly statuses = new Map<Player, { text: Phaser.GameObjects.Text; icon: Phaser.GameObjects.Image }>();
   private messageTimer?: Phaser.Time.TimerEvent;
   private readonly uiCamera: Phaser.Cameras.Scene2D.Camera;
   private readonly sessionLabel: Phaser.GameObjects.Text;
@@ -21,65 +30,88 @@ export class ShopHud {
   private readonly phaseDetail: Phaser.GameObjects.Text;
   private readonly countdown: Phaser.GameObjects.Text;
   private readonly goalLabel: Phaser.GameObjects.Text;
+  private readonly goalBar: Phaser.GameObjects.Graphics;
+  private ratio = -1;
 
   constructor(private readonly scene: Phaser.Scene, players: Player[], private readonly economy: StoreEconomy, private readonly supplier: SupplierSystem, private readonly day: DayManager, private readonly customerCount: () => number, returnToMenu: () => void) {
     const worldObjects = [...scene.children.list];
-    const hud = scene.add.container(0, 0).setDepth(3000);
+    this.root = scene.add.container(0, 0).setDepth(3000);
     const panels = scene.add.graphics();
-    panels.fillStyle(THEME.colors.shadow, 0.08).fillRoundedRect(14, 11, VIEW.width - 24, 74, THEME.radius.small);
-    panels.fillStyle(THEME.colors.paper, 0.98).fillRoundedRect(12, 8, VIEW.width - 24, 74, THEME.radius.small);
-    panels.fillStyle(THEME.colors.paper, 0.98).fillRoundedRect(12, VIEW.height - 92, VIEW.width - 24, 84, THEME.radius.small);
-    panels.lineStyle(1, THEME.colors.woodDark, 0.2).strokeRoundedRect(12, VIEW.height - 92, VIEW.width - 24, 84, THEME.radius.small);
-    panels.lineStyle(1, THEME.colors.woodDark, 0.2).strokeRoundedRect(12, 8, VIEW.width - 24, 74, THEME.radius.small);
-    for (const x of [267, 545, 715, 936]) panels.lineStyle(1, THEME.colors.tile, 0.5).lineBetween(x, 18, x, 64);
-    const title = scene.add.text(24, 14, 'TIỆM NHÀ MÌNH', { ...TEXT_STYLE, fontSize: '21px', fontStyle: 'bold' });
-    const subtitle = scene.add.text(24, 44, 'Xếp kệ · Tính tiền · Cả xóm vui', { ...TEXT_STYLE, fontSize: '12px', color: cssColor(THEME.colors.muted) });
-    this.dayLabel = scene.add.text(290, 14, '', { ...TEXT_STYLE, fontSize: '16px', fontStyle: 'bold' });
-    this.phaseDetail = scene.add.text(290, 42, '', { ...TEXT_STYLE, fontSize: '12px' });
-    this.countdown = scene.add.text(565, 18, '', { ...TEXT_STYLE, fontSize: '24px', fontStyle: 'bold' });
-    this.goalLabel = scene.add.text(740, 15, '', { ...TEXT_STYLE, fontSize: '14px', lineSpacing: 6 });
-    this.moneyLabel = scene.add.text(1068, 14, '', { ...TEXT_STYLE, fontSize: '20px', fontStyle: 'bold', align: 'right' }).setOrigin(1, 0);
-    const back = scene.add.text(1068, 66, 'ESC · Menu', { ...TEXT_STYLE, fontSize: '12px', color: cssColor(THEME.colors.muted) }).setOrigin(1, 0).setInteractive({ useHandCursor: true }).on('pointerdown', returnToMenu);
-    const help = scene.add.text(24, 771, 'P1: WASD · E · F · Shift trái' + (players.length > 1 ? '     P2: Mũi tên · Enter · / · Shift phải' : '     E tương tác · F nhặt/thả'), { ...TEXT_STYLE, fontSize: '12px', color: cssColor(THEME.colors.ink) });
-    this.deliveryLabel = scene.add.text(1068, 754, '', { ...TEXT_STYLE, fontSize: '12px', color: cssColor(THEME.colors.woodDark) }).setOrigin(1, 0);
-    this.message = scene.add.text(550, 121, '', { ...TEXT_STYLE, fontSize: '15px', backgroundColor: cssColor(THEME.colors.paper), padding: { x: 14, y: 8 } }).setOrigin(0.5).setVisible(false);
-    hud.add([panels, title, subtitle, back, help, this.dayLabel, this.phaseDetail, this.countdown, this.goalLabel, this.moneyLabel, this.deliveryLabel, this.message]);
-    this.sessionLabel = scene.add.text(1068, 718, '', { ...TEXT_STYLE, fontSize: '12px', color: cssColor(THEME.colors.ink), align: 'right', lineSpacing: 5 }).setOrigin(1, 0);
-    hud.add(this.sessionLabel);
+    for (const rect of [HUD_LAYOUT.day, HUD_LAYOUT.goal, HUD_LAYOUT.money, HUD_LAYOUT.dock]) drawPaper(panels, rect.x, rect.y, rect.width, rect.height);
+    panels.fillStyle(UI.colors.green).fillRoundedRect(34, 34, 48, 48, 12);
+    this.root.add(panels);
+    this.dayLabel = this.text(98, 32, '', 20, true);
+    this.phaseDetail = this.text(98, 59, '', 13);
+    this.countdown = this.text(58, 58, '', 17, true).setOrigin(0.5).setColor(cssColor(UI.colors.white));
+    this.text(34, 88, 'TIỆM NHÀ MÌNH', 12, true).setColor(cssColor(UI.colors.muted));
+    this.text(410, 32, 'Mục tiêu hôm nay', 13).setColor(cssColor(UI.colors.muted));
+    this.goalLabel = this.text(410, 51, '', 14, true);
+    this.goalBar = scene.add.graphics(); this.root.add(this.goalBar);
+    this.text(880, 32, 'Tiền của tiệm', 13).setColor(cssColor(UI.colors.muted));
+    this.moneyLabel = this.text(1060, 58, '', 26, true).setOrigin(1, 0).setColor(cssColor(UI.colors.green));
+    panelButton(scene, this.root, 1047, 96, 'Menu', returnToMenu, undefined, true, { width: 56, height: 24, fontSize: 12 });
+    this.sessionLabel = this.text(1068, 663, '', 12).setOrigin(1, 0).setColor(cssColor(UI.colors.ink)).setBackgroundColor(cssColor(UI.colors.paper)).setPadding(8, 4);
+    this.deliveryLabel = this.text(1068, 643, '', 12).setOrigin(1, 0).setColor(cssColor(UI.colors.ink)).setBackgroundColor(cssColor(UI.colors.paper)).setPadding(8, 2);
     players.forEach((player, index) => {
-      const status = scene.add.text(24 + index * 270, 720, '', { ...TEXT_STYLE, fontSize: '15px', color: cssColor(THEME.colors.ink), lineSpacing: 7 });
-      hud.add(scene.add.rectangle(15 + index * 270, 739, 3, 36, player.id === 1 ? THEME.colors.blue : THEME.colors.orange));
-      hud.add(status); this.statuses.set(player, status);
+      const p = HUD_LAYOUT.player, x = p.x + index * p.gap;
+      drawPaper(panels, x, p.y, p.width, p.height);
+      panels.fillStyle(player.id === 1 ? UI.colors.mint : UI.colors.coralSoft).fillCircle(x + 31, p.y + 32, 21);
+      const portraitKey = `portrait-player-${player.id}`;
+      const headKey = `${PLAYER_STYLES[index]!.key}-head-DOWN-NEUTRAL`;
+      const portrait = scene.add.image(x + 31, p.y + 30, scene.textures.exists(portraitKey) ? portraitKey : headKey).setDisplaySize(44, 44);
+      const icon = scene.add.image(x + 31, p.y + 64, 'product-instant_noodles').setDisplaySize(22, 22).setVisible(false);
+      this.root.add([portrait, icon]);
+      this.text(x + 63, p.y + 12, `P${player.id} · ${player.id === 1 ? 'Anh chủ tiệm' : 'Chị chủ tiệm'}`, 13, true).setColor(cssColor(player.id === 1 ? UI.colors.blue : UI.colors.orange));
+      const text = this.text(x + 63, p.y + 34, '', 14).setWordWrapWidth(172).setLineSpacing(1);
+      this.statuses.set(player, { text, icon });
     });
+    this.text(646, 710, 'Cùng nhau trông tiệm', 12).setColor(cssColor(UI.colors.muted));
+    this.text(20, 785, players.length > 1 ? 'P1 · WASD / E / F / Shift trái     P2 · Mũi tên / Enter / / / Shift phải' : 'WASD di chuyển   E tương tác   F nhặt / thả   Shift chạy nhanh', 11).setColor(cssColor(UI.colors.ink));
+    this.toastPaper = scene.add.graphics();
+    this.message = scene.add.text(0, 0, '', { ...UI_TEXT, fontSize: '15px', align: 'center', wordWrap: { width: 490 } }).setOrigin(0.5);
+    this.toast = scene.add.container(VIEW.width / 2, 210, [this.toastPaper, this.message]).setVisible(false);
+    this.root.add(this.toast);
     this.uiCamera = scene.cameras.add(0, 0, VIEW.width, VIEW.height);
-    this.uiCamera.ignore(worldObjects);
-    scene.cameras.main.ignore(hud);
+    this.uiCamera.ignore(worldObjects); scene.cameras.main.ignore(this.root);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.messageTimer?.remove());
     this.update();
   }
+  addAction(index: number, label: string, action: () => void, audio?: AudioManager): void {
+    const button = panelButton(this.scene, this.root, 697 + index * 106, 752, label, action, audio, index !== 0, { width: 98, height: 34, fontSize: 13 });
+    this.scene.cameras.main.ignore(button.root);
+  }
+  private text(x: number, y: number, value: string, size: number, bold = false): Phaser.GameObjects.Text {
+    const label = this.scene.add.text(x, y, value, { ...UI_TEXT, fontSize: `${size}px`, fontStyle: bold ? 'bold' : 'normal' }); this.root.add(label); return label;
+  }
   excludeWorldObject(object: Phaser.GameObjects.GameObject): void { this.uiCamera.ignore(object); }
   notify(message: string): void {
-    this.message.setText(message).setVisible(true);
-    this.messageTimer?.remove();
-    this.messageTimer = this.scene.time.delayedCall(3000, () => this.message.setVisible(false));
+    this.message.setText(message); const w = this.message.width + 36, h = this.message.height + 24;
+    this.toastPaper.clear(); drawPaper(this.toastPaper, -w / 2, -h / 2, w, h);
+    this.toast.setVisible(true); this.messageTimer?.remove();
+    this.messageTimer = this.scene.time.delayedCall(3000, () => this.toast.setVisible(false));
   }
   update(): void {
-    const phaseNames = { PREPARATION: 'CHUẨN BỊ', OPEN: 'MỞ CỬA', CLOSING: 'ĐÓNG CỬA', SUMMARY: 'TỔNG KẾT' };
-    this.dayLabel.setText(`NGÀY ${this.day.currentDay} · ${phaseNames[this.day.state]}`);
-    this.phaseDetail.setText(this.day.state === 'PREPARATION' ? 'Tương tác tại lối vào để mở cửa' : this.day.state === 'CLOSING' ? `Còn ${this.customerCount()} khách · Phục vụ nốt nhé!` : 'Cùng nhau trông tiệm');
-    this.countdown.setText(this.day.state === 'OPEN' ? ` ${formatCountdown(this.day.remainingOpenTimeMs / 1000)}` : '');
-    this.goalLabel.setText(`MỤC TIÊU NGÀY\n${formatVnd(this.day.statistics.dailyRevenue)} / ${formatVnd(this.day.dailyGoal)}`);
+    const daily = this.day.statistics;
+    this.dayLabel.setText(`Ngày ${this.day.currentDay}`);
+    this.phaseDetail.setText(this.day.state === 'CLOSING' ? `Còn ${this.customerCount()} khách` : DAY_LABELS[this.day.state]);
+    this.countdown.setText(this.day.state === 'OPEN' ? formatCountdown(this.day.remainingOpenTimeMs / 1000) : String(this.day.currentDay)).setFontSize(this.day.state === 'OPEN' ? 14 : 15);
+    this.goalLabel.setText(`${formatVnd(daily.dailyRevenue)} / ${formatVnd(this.day.dailyGoal)}`);
+    const ratio = uiRatio(daily.dailyRevenue, this.day.dailyGoal);
+    if (ratio !== this.ratio) {
+      this.ratio = ratio; this.goalBar.clear().fillStyle(UI.colors.line).fillRoundedRect(410, 77, 280, 9, 4);
+      if (ratio > 0) this.goalBar.fillStyle(ratio === 1 ? UI.colors.green : UI.colors.coral).fillRoundedRect(410, 77, Math.max(9, 280 * ratio), 9, 4);
+    }
+    this.goalLabel.setScale(Math.min(1, 280 / Math.max(1, this.goalLabel.width)));
+    this.moneyLabel.setText(formatVnd(this.economy.money)).setScale(Math.min(1, 180 / Math.max(1, this.moneyLabel.width)));
     const stats = this.economy.accounting;
-    this.moneyLabel.setText(`TIỀN
-${formatVnd(this.economy.money)}`);
-    this.sessionLabel.setText(`CẢ PHIÊN · Thu ${formatVnd(stats.totalRevenue)} · Chi ${formatVnd(stats.totalExpenses)}
-Lãi ${formatSignedVnd(stats.profit)} · Khách ${stats.totalCustomersServed}`);
+    this.sessionLabel.setText(`Cả phiên · Thu ${formatVnd(stats.totalRevenue)} · Chi ${formatVnd(stats.totalExpenses)} · Lãi ${formatSignedVnd(stats.profit)} · ${stats.totalCustomersServed} khách`);
+    this.sessionLabel.setScale(Math.min(1, 540 / Math.max(1, this.sessionLabel.width)));
     const order = this.supplier.activeOrder;
-    const delivery = order ? `${order.id} · Đang giao · ${Math.ceil(this.supplier.remainingMs / 1000)} giây` : 'Kho hữu hạn · Đặt hàng tại bàn bên trái';
-    if (this.deliveryLabel.text !== delivery) this.deliveryLabel.setText(delivery);
-    for (const [player, label] of this.statuses) {
-      const text = `P${player.id}\nCầm: ${describeStack(player.currentHeldItem)}`;
-      if (label.text !== text) label.setText(text);
+    this.deliveryLabel.setText(order ? `Xe đang tới · ${Math.ceil(this.supplier.remainingMs / 1000)} giây` : 'Đặt thêm hàng tại bàn bên trái');
+    for (const [player, status] of this.statuses) {
+      const stack = player.currentHeldItem, text = stack ? describeStack(stack) : 'Tay trống · Sẵn sàng làm việc';
+      if (status.text.text !== text) status.text.setText(text);
+      status.icon.setVisible(stack !== null); if (stack) status.icon.setTexture(`product-${stack.productId}`);
     }
   }
 }

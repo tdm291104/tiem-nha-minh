@@ -1,6 +1,17 @@
 import * as THREE from 'three';
-import type { ProductId } from '../../products/Product';
+import type { ProductId, ProductStack } from '../../products/Product';
 import type { ModelFactory } from './ModelFactory';
+
+export function createStackModel(factory: ModelFactory, stack: ProductStack): THREE.Group {
+  if (!stack.packed) return createProductModel(factory, stack.productId);
+  const root = new THREE.Group();
+  factory.box(root, 0, 0.14, 0, 0.32, 0.28, 0.26, 0xc99c67);
+  factory.box(root, 0, 0.285, 0, 0.06, 0.012, 0.27, 0xe6c698);
+  factory.box(root, 0, 0.14, 0.133, 0.06, 0.28, 0.008, 0xe6c698);
+  const label = createProductModel(factory, stack.productId);
+  label.scale.setScalar(0.55); label.position.set(-0.07, 0.07, 0.14); root.add(label);
+  return root;
+}
 
 export function createProductModel(factory: ModelFactory, id: ProductId): THREE.Group {
   const root = new THREE.Group();
@@ -10,7 +21,7 @@ export function createProductModel(factory: ModelFactory, id: ProductId): THREE.
       factory.box(root, 0, 0.09, 0, 0.21, 0.16, 0.08, c.red);
       factory.box(root, 0, 0.09, 0.047, 0.15, 0.09, 0.008, c.yellow);
       factory.sphere(root, 0, 0.082, 0.055, 0.1, 0.045, 0.008, c.cream);
-      factory.box(root, 0, 0.165, 0, 0.21, 0.018, 0.07, c.yellow); break;
+      factory.box(root, 0, 0.165, 0, 0.218, 0.018, 0.07, c.yellow); break;
     case 'soft_drink':
       factory.cylinder(root, 0, 0.105, 0, 0.062, 0.2, 0x4bcab5);
       factory.cylinder(root, 0, 0.12, 0, 0.063, 0.068, c.cream);
@@ -19,7 +30,7 @@ export function createProductModel(factory: ModelFactory, id: ProductId): THREE.
     case 'milk': {
       factory.box(root, 0, 0.12, 0, 0.13, 0.22, 0.12, c.cream);
       factory.box(root, 0, 0.08, 0.063, 0.12, 0.08, 0.008, c.blue);
-      const top = factory.box(root, 0, 0.245, 0, 0.13, 0.07, 0.07, c.blue); top.rotation.x = Math.PI / 4;
+      const top = factory.box(root, 0, 0.245, 0, 0.122, 0.07, 0.07, c.blue); top.rotation.x = Math.PI / 4;
       factory.box(root, 0, 0.279, 0, 0.13, 0.01, 0.016, c.cream); break;
     }
     case 'cookies':

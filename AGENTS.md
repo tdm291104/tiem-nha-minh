@@ -1,34 +1,27 @@
 # Coding instructions
 
-- Preserve Phaser 3, TypeScript strict mode, Vite, and npm. Do not introduce React without explicit instruction.
-- Avoid unnecessary dependencies, wrappers, and infrastructure. Prefer small focused modules and direct implementations.
-- Support both solo and local co-op through player collections and configurable controls. Never hardcode gameplay around Player 1.
-- Keep interaction behavior outside scenes. Scenes assemble systems; entities and systems own their behavior.
-- Keep artwork replaceable through presentation views and cached texture keys. Share product icons across world/UI and centralize visual tokens/scales. Furniture artwork rises above unchanged footprints; sort by ground baselines, not artwork height. Visual bob/tweens transform visual children only, never physics or navigation coordinates.
-- Keep Three.js presentation read-only: map the Phaser X/Y ground plane to Three X/Z, preserve collision/navigation footprints, and project world labels through the shared 3D camera. Dispose GPU resources/listeners/canvases on scene shutdown. Generate UI product art from the same 3D models; retain the 2D fallback for browsers without WebGL 2.
-- Solo perspective cameras may rotate the input basis without changing movement speed or inventory rules. Third-person auto-follow must not feed rotating yaw back into a held movement input. Keep co-op on the shared camera; camera/look input must stop during modals and SUMMARY.
-- Keep tuning values centralized where appropriate. Avoid `any`, duplicated movement logic, and giant files.
-- Before bug fixes, reproduce the issue in the browser as an end user would. Inspect visuals and fix clear layout issues.
-- After meaningful changes, run `npm run typecheck` and `npm run build`, plus appropriate runtime checks. Resolve failures and flakiness; report environmental blockers honestly.
-- Verify both modes, independent Shift keys, normalized diagonals, collision corners, interactions, scene restarts, and focus loss when changing input or physics.
-- Keep product definitions central and inventory rules pure. Preserve stock conservation, validated integer quantities, shelf capacity, and exact partial-transfer remainders. All shelf consumers must use `ShelfInventory.take`; views observe stock changes and unsubscribe on destruction.
-- Keep `StoreStorage` authoritative for back-room quantities. Crates only observe it and never generate goods. Validate complete deliveries before mutation; preserve nonnegative integer quantities and stock conservation through every transfer.
-- Keep one held stack per player and claim dropped items synchronously by ID. Never replace a carried stack when taking from storage or allow multiple players to claim one dropped item.
-- Keep NPC navigation independent of customer behavior. Derive the grid from static collision geometry with footprint clearance; plan routes when destinations change, not every frame.
-- Keep customer transitions explicit. Do not reserve or copy shelf stock while navigating; consume it only at the taking state. Preserve spawn limits and clean up entities, labels, and lifecycle references on scene shutdown.
-- Preserve customer goods in cart lines from shelf consumption through player-triggered payment. Out-of-stock trips never queue or produce sales. Never auto-pay waiting customers.
-- Keep queue ordering and unique membership in checkout domain logic; move NPCs to changed slots with navigation, never by teleporting. Claim processing synchronously before another player can interact, and cancel jobs and references on scene shutdown.
-- Keep all money mutation in `StoreEconomy`. Use safe integer VND and immutable sales/orders; keep sale revenue separate from supplier expenses and derive profit from revenue minus expenses. Preserve payment, spending-reference, and served-customer deduplication.
-- Supplier confirmation must validate before spending, claim one active order synchronously, and deliver exactly once before notifying observers. Scene shutdown discards session orders and prevents later inventory mutation. Modal ordering must block gameplay inputs without modifying carried goods.
-- Keep `DayManager` authoritative for day state and clock. Spawn customers only during OPEN; closing must let existing customers finish and wait for checkout and paid delivery before SUMMARY.
-- Capture daily accounting baselines at PREPARATION, including preparation expenses. Keep daily and session stats separate; never reset store money, stock, held/dropped goods, or histories on Next Day.
-- SUMMARY blocks controls and pauses simulation. All time-based gameplay follows the same delta-time pause semantics; never introduce wall-clock-dependent domain behavior.
-- Run `npm test` for inventory, customer, navigation, checkout, economy, storage, supplier, and day changes. Tests use Node's built-in runner against pure TypeScript modules; keep those modules usable with Node type stripping.
-- Presentation reacts to committed domain notifications, never infers or mutates gameplay from HUD changes. Clean up temporary views, tweens, and subscriptions on destruction/shutdown; respect reducedMotion. Audio calls must tolerate missing assets and unavailable playback. Decorative props must not become navigation blockers without explicit gameplay intent.
-- Do not implement unrelated gameplay or infrastructure. Upgrades, employees, reputation, random events, saves, backend, online multiplayer, and final art require a later explicit scope.
-- Preserve user files. Never manually edit generated files, including dependency lockfiles and build output.
-- Never use an em dash. Never add an agent name as a commit co-author.
-- Prefer quality, simplicity, robustness, scalability, and long-term maintainability over development cost.
-- Ask for explicit approval before a large swarm of agents; explain its tradeoffs first.
+- Preserve Phaser 3, Three.js, TypeScript strict mode, Vite and npm. No React or unnecessary dependencies/infrastructure. Prefer focused modules and direct implementations.
+- Support solo and local co-op through player collections and configurable controls. Scenes assemble systems; entities/systems own gameplay. Never hardcode rules around P1.
+- Keep domain logic independent of rendering and usable with Node type stripping. Keep product definitions, prices and tuning centralized; avoid `any`, duplicate logic and giant files.
+- Phaser owns collision/navigation coordinates. Three.js reads state on the X/Z ground plane, projects labels through its camera and disposes GPU resources/canvases/listeners on shutdown. Preserve the 2D fallback.
+- Keep art replaceable through views, cached textures/models and shared product icons. Sort 2D artwork by ground baselines. Bob/tweens affect visual children only; decorations do not block navigation without gameplay intent.
+- Co-op uses a shared camera. Solo perspective input may rotate its movement basis, but third-person auto-follow must not rotate a held movement input. Camera/look input stops during modals and SUMMARY.
+- Preserve stock conservation, safe integer quantities, shelf capacity and partial remainders. `StoreStorage` owns warehouse stock; crates never generate goods. Shelf consumers use `ShelfInventory.take`; observing views unsubscribe on destruction.
+- Keep one held stack per player and claim dropped items synchronously. Never replace carried goods or let multiple actors claim the same stock/job. Preserve packed/expiry metadata through transfer and saves; reject packed goods at shelves. Expiry is an explicit counted stock sink.
+- Keep navigation independent of NPC behavior, derived from static footprints with clearance. Replan only when destinations change. Keep customer transitions explicit, consume shelf stock at the taking state and preserve spawn limits.
+- Preserve actual customer cart lines through player-triggered checkout. Empty carts never produce sales. Recover abandoned unpaid goods; timeout must not cancel claimed checkout. Queue membership/order is unique and slot advances use navigation, never teleportation.
+- `StoreEconomy` owns all money mutation. Use safe integer VND, immutable sales/orders and deduplicated payments/spending/customer IDs. Revenue and expense categories remain separate; profit is revenue minus expenses.
+- Validate supplier orders before spending; claim one order synchronously and deliver once. Arrival creates finite truck cargo; unpacking creates warehouse stock. Cancel live callbacks on shutdown and retain paid delivery state in validated saves.
+- Validate complete versioned saves before constructing scene objects. Preserve historical costs, deduplication and paid delivery durations. Snapshot recovery returns unpaid customer/employee goods without mutating live inventory or recovering sold goods. Settings use a separate slot.
+- Preparation-only upgrades/expansion/decorations use domain APIs and shared money. Preserve stock and already-claimed durations. Rebuild visual/collider/navigation footprints together after validated safe-slot furniture changes.
+- Employees share stock/navigation/cleaning/checkout APIs, claim jobs synchronously and bill wages once per day. Record employee sales independently of player IDs.
+- `DayManager` owns state and simulation clock. Spawn only during OPEN. Closing waits for customers, processing checkout and paid inbound delivery before SUMMARY. Capture accounting baselines at PREPARATION; keep daily/session stats separate.
+- Next Day never resets money, inventory, held/dropped goods or histories. SUMMARY and modals block controls and pause simulation. Time-based gameplay uses delta time, never wall-clock domain behavior.
+- Presentation reacts to committed domain notifications and never mutates gameplay through effects. Clean up temporary objects, tweens and subscriptions; respect reduced motion. Audio tolerates missing assets or unavailable playback.
+- Before bug fixes, reproduce in the browser as an end user. Inspect layout/visuals and resolve clear defects. Report environment blockers honestly; automated tests/build do not establish browser verification.
+- After meaningful changes run `npm run typecheck`, `npm test` and `npm run build`, plus relevant browser checks. Resolve failures/flakiness without weakening tests. Input/physics changes require both modes, independent Shift keys, diagonal normalization, collision corners, scene restarts and focus loss checks.
+- Do not implement unrelated gameplay or infrastructure. Reputation, random events, backend, online multiplayer and final art require explicit scope.
+- Preserve user files; never manually edit generated files, lockfiles or build output. Never use an em dash or add an agent name as commit co-author.
+- Prefer quality, simplicity, robustness and maintainability over development cost. Do not spawn agents without authorization; a large swarm requires explicit approval and an explanation of tradeoffs.
 
-Keep this file concise and broadly useful. Rewrite or prune rules instead of duplicating what the code already makes clear.
+Keep this file concise. Rewrite or prune rules rather than repeating the code.

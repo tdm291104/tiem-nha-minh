@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import type { CharacterStyle } from './CharacterStyles';
-import type { Emotion, Facing } from './PresentationRules';
-import { facingFromMovement, motionPolicy } from './PresentationRules';
+import { type Emotion, type Facing, facingFromMovement, motionPolicy } from './PresentationRules';
 import { directionalVisualKeys } from './VisualCatalog';
 import { drawContactShadow } from './ContactShadow';
 import { THEME, VISUAL_SETTINGS } from './VisualTheme';

@@ -3,8 +3,8 @@ import { CAMERA, VIEW, WORLD } from '../config/settings';
 import type { Player } from '../entities/Player';
 
 export class ShopCamera {
-  constructor(private readonly camera: Phaser.Cameras.Scene2D.Camera, private readonly players: Player[]) {
-    camera.setBounds(-45, -45, WORLD.width + 90, WORLD.height + 90);
+  constructor(private readonly camera: Phaser.Cameras.Scene2D.Camera, private readonly players: Player[], width = WORLD.width, height = WORLD.height) {
+    camera.setBounds(-45, -45, width + 90, height + 90);
     const first = players[0];
     if (!first) throw new Error('A shop needs at least one player');
     camera.centerOn(first.x, first.y);

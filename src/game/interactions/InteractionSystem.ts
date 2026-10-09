@@ -16,6 +16,7 @@ export class InteractionSystem {
     for (const prompt of this.prompts.values()) prompt.setProjector(project);
     this.selectionChanged = selectionChanged;
   }
+  setTargets(targets: readonly Interactable[]): void { this.targets.splice(0, this.targets.length, ...targets); }
   hide(): void { for (const [player, prompt] of this.prompts) { prompt.hide(); this.selectionChanged?.(player.id); } }
   update(players: Player[]): void {
     for (const player of players) {

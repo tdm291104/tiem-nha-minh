@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { THEME } from '../VisualTheme.ts';
 
-/** Scene-owned shared resources. Replacing these model builders never changes domain entities. */
 export class ModelFactory {
   private readonly materials = new Map<string, THREE.MeshStandardMaterial>();
   private readonly geometries = new Map<string, THREE.BufferGeometry>();
@@ -58,7 +57,7 @@ export class ModelFactory {
     context.font = 'bold 44px Trebuchet MS, Arial, sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle';
     context.fillText(text, 256, 67, 490);
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; this.textures.push(texture);
-    const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9 });
+    const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
     this.materials.set(`sign:${this.textures.length}`, material);
     const mesh = new THREE.Mesh(this.geometry(`plane:${width}:${height}`, () => new THREE.PlaneGeometry(width, height)), material);
     mesh.position.set(x, y, z); parent.add(mesh); return mesh;

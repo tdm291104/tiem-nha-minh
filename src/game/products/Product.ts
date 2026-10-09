@@ -14,4 +14,6 @@ export interface Product {
 export interface ProductStack {
   readonly productId: ProductId;
   readonly quantity: number;
+  readonly packed?: boolean;
+  readonly expiresOnDay?: number;
 }

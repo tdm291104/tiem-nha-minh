@@ -2,46 +2,51 @@ import Phaser from 'phaser';
 import { CharacterView } from '../presentation/CharacterView';
 import { PLAYER_STYLES } from '../presentation/CharacterStyles';
 import { createSceneAudio } from '../audio/createSceneAudio';
-import type { AudioManager } from '../audio/AudioManager';
-import { THEME, cssColor } from '../presentation/VisualTheme';
-import { TEXT_STYLE, VIEW } from '../config/settings';
+import { cssColor } from '../presentation/VisualTheme';
+import { VIEW } from '../config/settings';
+import { browserSaves } from '../persistence/GameSave';
+import { SettingsPanel } from '../ui/SettingsPanel';
+import { UI, UI_TEXT } from '../ui/UiTheme';
+import { panelButton } from '../ui/PanelPrimitives';
 
 export class MenuScene extends Phaser.Scene {
-  private audio!: AudioManager;
   constructor() { super('MenuScene'); }
   create(): void {
-    this.audio = createSceneAudio(this);
-    this.cameras.main.setBackgroundColor(cssColor(THEME.colors.floor));
-    const g = this.add.graphics();
-    g.fillStyle(THEME.colors.green).fillRect(0, 0, VIEW.width, 20);
-    for (let i = 0; i < 11; i++) {
-      g.fillStyle(i % 2 ? THEME.colors.amber : THEME.colors.warning).fillRoundedRect(i * 100, 20, 100, 65, { tl: 0, tr: 0, bl: 20, br: 20 });
+    const audio = createSceneAudio(this);
+    this.cameras.main.setBackgroundColor(cssColor(UI.colors.paper));
+    const root = this.add.container(0, 0), g = this.add.graphics(); root.add(g);
+    g.fillStyle(UI.colors.mint).fillCircle(945, 328, 370);
+    g.fillStyle(UI.colors.coralSoft).fillCircle(1115, 704, 180);
+    g.fillStyle(UI.colors.green).fillRect(0, 0, VIEW.width, 10);
+    for (let i = 0; i < 22; i++) g.fillStyle(i % 2 ? UI.colors.paper : UI.colors.green).fillRoundedRect(i * 50, 10, 50, 45, { tl: 0, tr: 0, bl: 12, br: 12 });
+    const text = (x: number, y: number, value: string, size: number, bold = false): Phaser.GameObjects.Text => { const label = this.add.text(x, y, value, { ...UI_TEXT, fontSize: `${size}px`, fontStyle: bold ? 'bold' : 'normal' }); root.add(label); return label; };
+    text(64, 172, 'Tiệm\nNhà Mình', 66, true).setLineSpacing(-4).setColor(cssColor(UI.colors.green));
+    text(68, 342, 'Một tiệm nhỏ. Cả xóm thương.', 23);
+    text(68, 384, 'Nhập hàng, xếp kệ, đón khách.\nMột mình hay cùng nhau, hôm nay mình mở tiệm!', 16).setLineSpacing(8).setColor(cssColor(UI.colors.muted));
+    if (this.textures.exists('menu-shop-3d')) root.add(this.add.image(824, 393, 'menu-shop-3d').setDisplaySize(680, 680));
+    else if (this.textures.exists('shopkeepers-3d')) root.add(this.add.image(812, 423, 'shopkeepers-3d').setDisplaySize(410, 225));
+    else { root.add(new CharacterView(this, PLAYER_STYLES[0]!).setPosition(725, 478).setScale(2)); root.add(new CharacterView(this, PLAYER_STYLES[1]!).setPosition(865, 478).setScale(2)); }
+    text(812, 683, 'Mỗi ngày một tiệm vui', 18, true).setOrigin(0.5).setColor(cssColor(UI.colors.green));
+    const loaded = browserSaves()?.load();
+    const start = (playerCount: 1 | 2): void => { this.scene.start('ShopScene', { playerCount }); };
+    if (loaded?.save) {
+      panelButton(this, root, 245, 492, `Tiếp tục · Ngày ${loaded.save.day.day}`, () => this.scene.start('ShopScene', { playerCount: loaded.save!.players.length, continueSave: true }), audio, false, { width: 360, height: 54, fontSize: 20 });
+      panelButton(this, root, 151, 551, 'Tiệm mới · 1 người', () => start(1), audio, true, { width: 173, height: 46, fontSize: 14 });
+      panelButton(this, root, 339, 551, 'Tiệm mới · 2 người', () => start(2), audio, true, { width: 173, height: 46, fontSize: 14 });
+    } else {
+      panelButton(this, root, 245, 492, 'Chơi 1 người', () => start(1), audio, false, { width: 360, height: 54, fontSize: 20 });
+      panelButton(this, root, 245, 553, 'Chơi 2 người · Cùng trông tiệm', () => start(2), audio, true, { width: 360, height: 48, fontSize: 17 });
     }
-    this.add.text(550, 175, 'CHUẨN BỊ MỞ TIỆM, GHÉ CHƠI NHA!', { ...TEXT_STYLE, fontSize: '15px', letterSpacing: 3 }).setOrigin(0.5);
-    this.add.text(550, 250, 'TIỆM NHÀ MÌNH', { ...TEXT_STYLE, fontSize: '62px', fontStyle: 'bold' }).setOrigin(0.5);
-    this.add.text(550, 315, 'Một tiệm nhỏ. Cả xóm thương.', { ...TEXT_STYLE, fontSize: '23px' }).setOrigin(0.5);
-    if (this.textures.exists('shopkeepers-3d')) this.add.image(550, 392, 'shopkeepers-3d').setDisplaySize(280, 154);
-    else {
-      new CharacterView(this, PLAYER_STYLES[0]!).setPosition(485, 428).setScale(1.4);
-      new CharacterView(this, PLAYER_STYLES[1]!).setPosition(615, 428).setScale(1.4);
-    }
-    this.button(500, 'Chơi 1 người', 1);
-    this.button(590, 'Chơi 2 người', 2);
-    this.add.text(550, 685, 'WASD / Phím mũi tên · Cùng nhau trông tiệm', { ...TEXT_STYLE, fontSize: '17px' }).setOrigin(0.5);
-    this.add.text(550, 752, 'PHIÊN BẢN 3D  /  MỖI NGÀY MỘT TIỆM VUI', { ...TEXT_STYLE, fontSize: '12px', letterSpacing: 2 }).setOrigin(0.5).setAlpha(0.6);
+    if (loaded?.error) text(68, 443, 'Không đọc được bản lưu. Bạn có thể mở tiệm mới.', 13).setColor(cssColor(UI.colors.error));
+    const settings = new SettingsPanel(this, () => {}, audio, false);
+    panelButton(this, root, 160, 617, 'Âm thanh & cài đặt', () => settings.open(), audio, true, { width: 190, height: 36, fontSize: 13 });
+    text(68, 662, 'WASD / Mũi tên · E / Enter để tương tác', 13).setColor(cssColor(UI.colors.muted));
+    g.lineStyle(1, UI.colors.line).lineBetween(64, 741, 1036, 741);
+    text(64, 762, 'TIỆM NHÀ MÌNH', 12, true); text(1036, 762, 'Cùng nhau trông tiệm', 13).setOrigin(1, 0).setColor(cssColor(UI.colors.muted));
     const keyboard = this.input.keyboard;
-    keyboard?.once('keydown-ONE', () => this.scene.start('ShopScene', { playerCount: 1 }));
-    keyboard?.once('keydown-TWO', () => this.scene.start('ShopScene', { playerCount: 2 }));
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      keyboard?.removeAllListeners('keydown-ONE');
-      keyboard?.removeAllListeners('keydown-TWO');
-    });
-  }
-  private button(y: number, title: string, playerCount: 1 | 2): void {
-    const rect = this.add.rectangle(550, y, 340, 66, playerCount === 1 ? THEME.colors.green : THEME.colors.amber).setStrokeStyle(2, THEME.colors.green).setInteractive({ useHandCursor: true });
-    this.add.text(550, y, title, { ...TEXT_STYLE, fontSize: '24px', fontStyle: 'bold', color: playerCount === 1 ? cssColor(THEME.colors.paper) : cssColor(THEME.colors.ink) }).setOrigin(0.5);
-    rect.on('pointerover', () => rect.setAlpha(0.8));
-    rect.on('pointerout', () => rect.setAlpha(1));
-    rect.on('pointerdown', () => { this.audio.play('UI_CLICK'); this.scene.start('ShopScene', { playerCount }); });
+    keyboard?.on('keydown-ONE', () => { if (!settings.isOpen) start(1); });
+    keyboard?.on('keydown-TWO', () => { if (!settings.isOpen) start(2); });
+    keyboard?.on('keydown-ESC', settings.close, settings);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { keyboard?.removeAllListeners('keydown-ONE'); keyboard?.removeAllListeners('keydown-TWO'); keyboard?.off('keydown-ESC', settings.close, settings); });
   }
 }

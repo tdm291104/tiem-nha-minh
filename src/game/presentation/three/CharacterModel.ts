@@ -4,7 +4,7 @@ import type { Emotion, Facing } from '../PresentationRules';
 import { VISUAL_SETTINGS, THEME } from '../VisualTheme.ts';
 import type { ProductStack } from '../../products/Product';
 import type { ModelFactory } from './ModelFactory.ts';
-import { createProductModel } from './ProductModel.ts';
+import { createStackModel } from './ProductModel.ts';
 import { facingYaw, THREE_VIEW } from './ThreeRules.ts';
 
 export class CharacterModel {
@@ -74,11 +74,11 @@ export class CharacterModel {
     if (style.accessory === 'bag') { f.box(body, 0.185, 0.325, 0.02, 0.13, 0.17, 0.12, THEME.colors.wood); f.box(body, 0.145, 0.44, 0.016, 0.026, 0.27, 0.014, THEME.colors.woodDark); }
   }
   setHeld(stack: ProductStack | null): void {
-    const product = stack?.productId ?? '';
+    const product = stack ? `${stack.productId}:${Boolean(stack.packed)}` : '';
     if (product === this.heldProduct) return;
     if (this.held) this.figure.remove(this.held);
     this.heldProduct = product;
-    this.held = stack ? createProductModel(this.factory, stack.productId) : null;
+    this.held = stack ? createStackModel(this.factory, stack) : null;
     if (this.held) { this.held.position.set(0, 0.38, 0.19); this.figure.add(this.held); }
   }
   update(deltaMs: number, facing: Facing, moving: boolean, sprinting: boolean, emotion: Emotion): void {

@@ -1,6 +1,5 @@
 import type { ProductId } from '../products/Product.ts';
-import { assertQuantity } from '../products/StockTransfer.ts';
-import type { ShelfInventory } from '../products/StockTransfer.ts';
+import { assertQuantity, type ShelfInventory } from '../products/StockTransfer.ts';
 import type { Position } from '../types/game.ts';
 
 export interface ShoppingShelf {
