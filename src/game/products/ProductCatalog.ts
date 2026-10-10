@@ -8,7 +8,10 @@ export const PRODUCTS: Readonly<Record<ProductId, Product>> = {
   fish_sauce: { id: 'fish_sauce', name: 'Nước mắm', category: 'seasoning', placeholderColor: 0x94aa69, placeholderShape: 'bottle', maxStack: 5, buyPrice: 15000, sellPrice: 25000 },
 };
 
-export function getProduct(id: ProductId): Product { return PRODUCTS[id]; }
+export function getProduct(id: ProductId): Product {
+  if (!Object.hasOwn(PRODUCTS, id)) throw new RangeError('Unknown product');
+  return PRODUCTS[id];
+}
 
 export function createStack(productId: ProductId, quantity = getProduct(productId).maxStack, metadata: Pick<ProductStack, 'packed' | 'expiresOnDay'> = {}): ProductStack {
   if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > getProduct(productId).maxStack) {

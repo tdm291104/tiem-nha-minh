@@ -65,6 +65,26 @@ test('invalid save never overwrites an existing save slot', () => {
   assert.equal(repository.write(makeSave()), true); const original = raw;
   assert.equal(repository.write({ ...makeSave(), nextCustomerId: -1 }), false); assert.equal(raw, original);
 });
+test('unknown and inherited product IDs are rejected in held and dropped goods', () => {
+  for (const productId of ['unknown', '__proto__', 'constructor', 'toString']) {
+    for (const location of ['held', 'drop']) {
+      const saved = makeSave();
+      const stack = location === 'held' ? saved.players[0].held : saved.drops[0].stack;
+      stack.productId = productId;
+      assert.throws(() => decodeSave(JSON.stringify(saved)), /Unknown product/);
+    }
+  }
+});
+test('economy replay still rejects forged intermediate ledger entries', () => {
+  const economy = new StoreEconomy();
+  economy.trySpend(30000, 'order-1', 1000); economy.commit(sale);
+  economy.trySpend(1000, 'order-2', 6000);
+  for (const [field, value] of [['id', 'forged'], ['balanceAfter', 1], ['gameTimeMs', 999]]) {
+    const saved = structuredClone(economyCheckpoint(economy));
+    saved.ledger[1][field] = value;
+    assert.throws(() => restoreEconomy(saved), /Inconsistent saved ledger/);
+  }
+});
 test('player carrier position touching top wall remains saveable', () => {
   const saved = makeSave(); saved.players[0].position.y = 20; assert.doesNotThrow(() => decodeSave(JSON.stringify(saved)));
 });
@@ -150,5 +170,30 @@ test('progress snapshot rejects duplicate recovery in both save formats', () => 
     sources.customers.activeCustomers.push(sources.customers.activeCustomers[1]);
     assert.throws(() => new ShopProgress(sources).snapshot(), /Duplicate customer recovery/);
     assert.equal(sources.inventory.storage.getQuantity('milk'), 4);
+  }
+});
+test('autosave reports storage failure and successful retry without changing the old save', () => {
+  const previousWindow = globalThis.window;
+  let raw = JSON.stringify(makeSave()), blocked = true;
+  const original = raw;
+  const results = [];
+  globalThis.window = { localStorage: {
+    getItem: () => raw,
+    setItem: (_key, value) => { if (blocked) throw new Error('Quota exceeded'); raw = value; },
+  } };
+  try {
+    const sources = progressSources(false);
+    const progress = new ShopProgress(sources, saved => results.push(saved));
+    progress.snapshot = makeSave;
+    progress.update(4999); assert.deepEqual(results, []);
+    progress.update(1); assert.deepEqual(results, [false]); assert.equal(raw, original);
+    blocked = false;
+    assert.equal(progress.save(), true); assert.deepEqual(results, [false, true]);
+    progress.snapshot = () => { throw new RangeError('Invalid snapshot'); };
+    assert.equal(progress.save(), false); assert.deepEqual(results, [false, true, false]);
+    assert.equal(raw, original);
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
   }
 });

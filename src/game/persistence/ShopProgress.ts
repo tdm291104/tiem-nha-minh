@@ -27,8 +27,9 @@ export class ShopProgress {
   private elapsedMs = 0;
   private readonly repository = browserSaves();
   private readonly sources: ProgressSources;
+  private readonly onSaveResult: (saved: boolean) => void;
 
-  constructor(sources: ProgressSources) { this.sources = sources; }
+  constructor(sources: ProgressSources, onSaveResult: (saved: boolean) => void = () => {}) { this.sources = sources; this.onSaveResult = onSaveResult; }
 
   snapshot(): GameSave {
     const s = this.sources;
@@ -82,7 +83,13 @@ export class ShopProgress {
     };
   }
 
-  save(): boolean { return this.repository?.write(this.snapshot()) ?? false; }
+  save(): boolean {
+    let saved = false;
+    try { saved = this.repository?.write(this.snapshot()) ?? false; }
+    catch { /* Snapshot failure must leave the previous save intact. */ }
+    this.onSaveResult(saved);
+    return saved;
+  }
 
   update(deltaMs: number): void {
     this.elapsedMs += deltaMs;

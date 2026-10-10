@@ -60,9 +60,12 @@ export function restoreEconomy(saved: EconomyCheckpoint): StoreEconomy {
     } else if (entry.kind === 'SUPPLIER_PURCHASE' || entry.kind === 'UPGRADE_PURCHASE' || entry.kind === 'STAFF_HIRE' || entry.kind === 'STAFF_WAGE') {
       if (!economy.trySpend(-entry.amount, entry.referenceId, entry.gameTimeMs, entry.kind)) throw new RangeError('Invalid saved expense');
     } else throw new RangeError('Unknown money entry');
-    const actual = economy.moneyLedger.at(-1);
-    if (!actual || actual.id !== entry.id || actual.balanceAfter !== entry.balanceAfter || actual.gameTimeMs !== entry.gameTimeMs) throw new RangeError('Inconsistent saved ledger');
   }
+  const ledger = economy.moneyLedger;
+  saved.ledger.forEach((entry, index) => {
+    const actual = ledger[index];
+    if (!actual || actual.id !== entry.id || actual.balanceAfter !== entry.balanceAfter || actual.gameTimeMs !== entry.gameTimeMs) throw new RangeError('Inconsistent saved ledger');
+  });
   if (economy.money !== saved.money || economy.transactions.length !== saved.transactions.length) throw new RangeError('Inconsistent saved balance');
   return economy;
 }

@@ -45,6 +45,8 @@ Trong **Quản lý**, bạn có thể thuê nhân viên, phân công công việ
 
 Tiến trình tự lưu định kỳ, khi về menu và khi rời trang. Bạn cũng có thể chọn **Lưu tiệm**, sau đó **Tiếp tục** ở menu. Dữ liệu nằm trong trình duyệt hiện tại; xóa dữ liệu trình duyệt sẽ xóa bản lưu. Khách chưa thanh toán không được khôi phục, hàng trong giỏ của họ được trả vào kho của bản lưu.
 
+Mở **Tiệm mới** khi đã có bản lưu cần xác nhận thay thế tiến trình cũ. Nếu lưu thất bại, game hiện cảnh báo có thể bấm để thử lại và giữ bạn ở tiệm khi chọn về menu.
+
 **Cài đặt** có âm thanh, âm lượng, độ nhạy camera và giảm chuyển động. Âm thanh được tổng hợp tại chỗ, không cần tải tài nguyên ngoài.
 
 ## Phát triển

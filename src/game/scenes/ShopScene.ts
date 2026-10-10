@@ -123,7 +123,7 @@ export class ShopScene extends Phaser.Scene {
     const worldObjects = [...this.children.list].filter(object => object !== effects.layer);
     this.baseTargets = [...fixtures.crates, ...fixtures.shelves, ...this.cashiers, terminal, door];
     this.interactions = new InteractionSystem(this, this.players, [...this.baseTargets], obstacles);
-    this.hud = new ShopHud(this, this.players, economy, this.supplier, this.day, () => this.customers?.activeCustomerCount ?? 0, () => this.returnToMenu());
+    this.hud = new ShopHud(this, this.players, economy, this.supplier, this.day, () => this.customers?.activeCustomerCount ?? 0, () => this.returnToMenu(), () => this.progress?.save());
     this.orderPanel = new SupplierOrderPanel(this, this.supplier, open => this.setGameplayPaused(open), () => this.day.gameTimeMs, audio);
     this.summaryPanel = new DaySummaryPanel(this, day => this.startNextDay(day), audio);
     this.upgradePanel = new UpgradePanel(this, upgrades, open => this.setGameplayPaused(open), () => this.day.gameTimeMs, audio, this.players.length);
@@ -154,7 +154,7 @@ export class ShopScene extends Phaser.Scene {
       if (state === 'PREPARATION') { this.summaryPanel.setVisible(false); this.setGameplayPaused(false); }
     });
     const feedback = new ShopFeedback(this.inventory, fixtures.shelves, fixtures.crates, this.cashiers, this.checkout, this.supplier, this.day, effects, audio, this.players);
-    this.progress = new ShopProgress({ players: this.players, shelves: fixtures.shelves, inventory: this.inventory, customers: this.customers, economy, supplier: this.supplier, day: this.day, upgrades, operations: this.operations });
+    this.progress = new ShopProgress({ players: this.players, shelves: fixtures.shelves, inventory: this.inventory, customers: this.customers, economy, supplier: this.supplier, day: this.day, upgrades, operations: this.operations }, saved => this.hud.setSaveFailed(!saved));
     const save = (): void => { this.hud.notify(this.progress?.save() ? 'Đã lưu tiến trình trên trình duyệt này.' : 'Không lưu được. Kiểm tra quyền lưu trữ của trình duyệt.'); };
     const unload = (): void => { this.progress?.save(); };
     const available = (): boolean => !this.isModalOpen() && this.day.state !== 'SUMMARY';
@@ -184,7 +184,11 @@ export class ShopScene extends Phaser.Scene {
     if (this.upgradePanel?.isOpen) { this.upgradePanel.close(); return; }
     if (this.settingsPanel?.isOpen) { this.settingsPanel.close(); return; }
     if (this.operationsPanel?.isOpen) { this.operationsPanel.close(); return; }
-    this.progress?.save(); this.scene.start('MenuScene');
+    if (!this.progress?.save()) {
+      this.hud.notify('Chưa về menu vì không lưu được. Kiểm tra quyền lưu trữ rồi thử lại.');
+      return;
+    }
+    this.scene.start('MenuScene');
   }
   private isModalOpen(): boolean { return this.orderPanel?.isOpen || this.upgradePanel?.isOpen || this.settingsPanel?.isOpen || this.operationsPanel?.isOpen; }
   private rebuildShop(): void {

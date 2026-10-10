@@ -20,6 +20,7 @@ export class ShopHud {
   private readonly toast: Phaser.GameObjects.Container;
   private readonly message: Phaser.GameObjects.Text;
   private readonly toastPaper: Phaser.GameObjects.Graphics;
+  private readonly saveWarning: Phaser.GameObjects.Text;
   private readonly statuses = new Map<Player, { text: Phaser.GameObjects.Text; icon: Phaser.GameObjects.Image }>();
   private messageTimer?: Phaser.Time.TimerEvent;
   private readonly uiCamera: Phaser.Cameras.Scene2D.Camera;
@@ -33,7 +34,7 @@ export class ShopHud {
   private readonly goalBar: Phaser.GameObjects.Graphics;
   private ratio = -1;
 
-  constructor(private readonly scene: Phaser.Scene, players: Player[], private readonly economy: StoreEconomy, private readonly supplier: SupplierSystem, private readonly day: DayManager, private readonly customerCount: () => number, returnToMenu: () => void) {
+  constructor(private readonly scene: Phaser.Scene, players: Player[], private readonly economy: StoreEconomy, private readonly supplier: SupplierSystem, private readonly day: DayManager, private readonly customerCount: () => number, returnToMenu: () => void, retrySave: () => void) {
     const worldObjects = [...scene.children.list];
     this.root = scene.add.container(0, 0).setDepth(3000);
     const panels = scene.add.graphics();
@@ -71,6 +72,11 @@ export class ShopHud {
     this.message = scene.add.text(0, 0, '', { ...UI_TEXT, fontSize: '15px', align: 'center', wordWrap: { width: 490 } }).setOrigin(0.5);
     this.toast = scene.add.container(VIEW.width / 2, 210, [this.toastPaper, this.message]).setVisible(false);
     this.root.add(this.toast);
+    this.saveWarning = scene.add.text(VIEW.width / 2, VIEW.height, 'Chưa lưu được tiến trình. Đừng đóng trang; kiểm tra quyền lưu trữ. Bấm vào đây để thử lưu lại.', {
+      ...UI_TEXT, fontSize: '14px', color: cssColor(UI.colors.error), backgroundColor: cssColor(UI.colors.paper), padding: { x: 12, y: 6 }, wordWrap: { width: VIEW.width - 48 }, align: 'center',
+    }).setOrigin(0.5, 1).setDepth(5000).setVisible(false).setInteractive({ useHandCursor: true });
+    this.saveWarning.on('pointerdown', (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => { event.stopPropagation(); retrySave(); });
+    scene.cameras.main.ignore(this.saveWarning);
     this.uiCamera = scene.cameras.add(0, 0, VIEW.width, VIEW.height);
     this.uiCamera.ignore(worldObjects); scene.cameras.main.ignore(this.root);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.messageTimer?.remove());
@@ -84,6 +90,7 @@ export class ShopHud {
     const label = this.scene.add.text(x, y, value, { ...UI_TEXT, fontSize: `${size}px`, fontStyle: bold ? 'bold' : 'normal' }); this.root.add(label); return label;
   }
   excludeWorldObject(object: Phaser.GameObjects.GameObject): void { this.uiCamera.ignore(object); }
+  setSaveFailed(failed: boolean): void { this.saveWarning.setVisible(failed); }
   notify(message: string): void {
     this.message.setText(message); const w = this.message.width + 36, h = this.message.height + 24;
     this.toastPaper.clear(); drawPaper(this.toastPaper, -w / 2, -h / 2, w, h);
